@@ -1,0 +1,275 @@
+.app-shell {
+  min-height: 100vh;
+  color: #172033;
+  background: #f5f7fb;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 520px);
+  gap: 32px;
+  padding: 40px clamp(20px, 5vw, 72px);
+  color: #ffffff;
+  background: linear-gradient(135deg, #101828 0%, #1f3a5f 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #8dd7ff;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 780px;
+  margin-bottom: 14px;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1;
+}
+
+.hero-copy {
+  max-width: 720px;
+  margin-bottom: 0;
+  color: #d7e3f5;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.scan-panel {
+  align-self: end;
+  padding: 18px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 8%);
+}
+
+.scan-panel label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.scan-row {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  gap: 8px;
+}
+
+.scan-row input {
+  min-width: 0;
+  border: 1px solid #ccd6e3;
+  border-radius: 6px;
+  padding: 11px 12px;
+}
+
+.scan-row button,
+.panel-header select {
+  border: 0;
+  border-radius: 6px;
+  padding: 11px 14px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.scan-row button {
+  color: #ffffff;
+  background: #1b76d1;
+  cursor: pointer;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 24px clamp(20px, 5vw, 72px);
+}
+
+.summary-card,
+.findings-panel,
+.repo-panel {
+  border: 1px solid #dfe6f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.summary-card {
+  padding: 18px;
+}
+
+.summary-card span {
+  display: block;
+  margin-bottom: 10px;
+  color: #667085;
+  font-size: 14px;
+}
+
+.summary-card strong {
+  font-size: 30px;
+}
+
+.score-card {
+  border-color: #ffb4a8;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  padding: 0 clamp(20px, 5vw, 72px) 44px;
+}
+
+.findings-panel,
+.repo-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panel-header h2,
+.repo-panel h2 {
+  margin-bottom: 4px;
+}
+
+.panel-header p {
+  margin-bottom: 0;
+  color: #667085;
+}
+
+.panel-header select {
+  border: 1px solid #ccd6e3;
+  color: #172033;
+  background: #ffffff;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-top: 1px solid #e8edf5;
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: #667085;
+  font-size: 13px;
+}
+
+td {
+  color: #344054;
+  font-size: 14px;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.badge.high {
+  color: #8f1d12;
+  background: #ffe4df;
+}
+
+.badge.medium {
+  color: #8a5200;
+  background: #fff0cf;
+}
+
+.badge.low {
+  color: #124f88;
+  background: #dff0ff;
+}
+
+.badge.info {
+  color: #31505f;
+  background: #e8f1f5;
+}
+
+.repo-panel dl {
+  margin: 0;
+}
+
+.repo-panel dt {
+  color: #667085;
+  font-size: 13px;
+}
+
+.repo-panel dd {
+  margin: 4px 0 14px;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .hero,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .scan-row,
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+.error-message {
+  margin: 10px 0 0;
+  color: #ffd3d3;
+  font-weight: 700;
+}
+
+.empty-state {
+  margin: 24px clamp(20px, 5vw, 72px);
+  padding: 28px;
+  border: 1px solid #dfe6f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.empty-state p {
+  margin-bottom: 0;
+  color: #667085;
+}
+
+.repo-panel a {
+  display: inline-block;
+  margin-right: 12px;
+  color: #1b76d1;
+  font-weight: 700;
+}

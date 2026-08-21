@@ -273,3 +273,14 @@ td {
   color: #1b76d1;
   font-weight: 700;
 }
+.score-card.good {
+  border-color: #a7e4c1;
+}
+
+.score-card.warn {
+  border-color: #ffd58a;
+}
+
+.score-card.bad {
+  border-color: #ffb4a8;
+}

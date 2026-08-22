@@ -2,16 +2,12 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-
-def test_scan_endpoint_scans_local_path(tmp_path: Path) -> None:
+def test_scan_endpoint_scans_local_path(client: TestClient, tmp_path: Path) -> None:
     repo = tmp_path / "sample-repo"
     repo.mkdir()
     (repo / ".gitignore").write_text(".env\n", encoding="utf-8")
     (repo / "pyproject.toml").write_text("[project]\nname = 'sample'\n", encoding="utf-8")
-
-    client = TestClient(app)
 
     response = client.post(
         "/scan",
@@ -25,9 +21,7 @@ def test_scan_endpoint_scans_local_path(tmp_path: Path) -> None:
     assert payload["score"] == 100
 
 
-def test_scan_endpoint_rejects_missing_local_path(tmp_path: Path) -> None:
-    client = TestClient(app)
-
+def test_scan_endpoint_rejects_missing_local_path(client: TestClient, tmp_path: Path) -> None:
     response = client.post(
         "/scan",
         json={"target": str(tmp_path / "missing"), "target_type": "local_path"},
@@ -35,11 +29,10 @@ def test_scan_endpoint_rejects_missing_local_path(tmp_path: Path) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Repo path must point to an existing directory."
+    assert response.headers["content-type"].startswith("application/problem+json")
 
 
-def test_scan_endpoint_rejects_github_url_for_mvp() -> None:
-    client = TestClient(app)
-
+def test_scan_endpoint_rejects_github_url_for_mvp(client: TestClient) -> None:
     response = client.post(
         "/scan",
         json={

@@ -16,7 +16,9 @@ CodeRisk Dashboard is a self-hosted security review workspace for turning reposi
 - Identify secret-like values while masking evidence before it reaches reports.
 - Check common insecure configuration and basic Python/React source patterns.
 - Filter findings by severity and calculate a deterministic 0–100 score.
-- Export the latest report as JSON or Markdown.
+- Persist repositories, scan history, findings, and engine-run metadata.
+- Expose a versioned API with pagination, filtering, and per-scan exports.
+- Export the latest report as JSON or Markdown through compatibility routes.
 - Ignore generated directories and constrain text-file size during scanning.
 - Validate scanner, API, and dashboard behavior with automated tests and coverage gates.
 
@@ -34,21 +36,24 @@ React + TypeScript dashboard
       FastAPI API
            |
            v
-  Testable scanner core
+   Service + scanner core
            |
            +-- repository metadata
            +-- dependency manifests
            +-- secret/config/SAST rules
            +-- JSON and Markdown reports
+           |
+           v
+ SQLAlchemy + Alembic history
 ```
 
-The scanner core lives outside FastAPI so rule behavior can be tested without starting a server. Persistent scans, asynchronous workers, external engine adapters, authentication, and production containers are planned in subsequent milestones.
+The scanner core lives outside FastAPI so rule behavior can be tested without starting a server. Repository and scan history are persisted through SQLAlchemy and Alembic. Asynchronous workers, external engine adapters, authentication, and production containers are planned in subsequent milestones.
 
 ## Technology
 
 | Area | Stack |
 | --- | --- |
-| Backend | Python 3.11+, FastAPI, uv, Pytest, Ruff |
+| Backend | Python 3.11+, FastAPI, SQLAlchemy 2, Alembic, uv, Pytest, Ruff |
 | Frontend | React 19, TypeScript 6, Vite 8 |
 | Frontend tests | Vitest, Testing Library, jsdom, V8 coverage |
 | Automation | GitHub Actions, Dependabot |
@@ -70,6 +75,7 @@ From the repository root:
 git clone https://github.com/Bor-Code/CodeRisk-Dashboard.git
 cd CodeRisk-Dashboard
 uv --directory backend sync --all-groups
+uv --directory backend run alembic upgrade head
 npm --prefix frontend ci
 ```
 
@@ -93,24 +99,30 @@ Enter an absolute path that is readable by the backend process. On Windows, a pa
 
 ## API
 
-The current MVP API exposes:
+The versioned resource API exposes:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Process health check |
-| `POST` | `/scan` | Scan a local repository path |
-| `GET` | `/reports/latest.json` | Export the latest report as JSON |
-| `GET` | `/reports/latest.md` | Export the latest report as Markdown |
+| `POST` | `/api/v1/repositories` | Register a local repository |
+| `GET` | `/api/v1/repositories` | List registered repositories |
+| `POST` | `/api/v1/repositories/{id}/scans` | Run and persist a repository scan |
+| `GET` | `/api/v1/scans` | List scans with pagination and filters |
+| `GET` | `/api/v1/scans/{id}` | Read scan status and summary |
+| `GET` | `/api/v1/scans/{id}/findings` | List and filter persisted findings |
+| `GET` | `/api/v1/scans/{id}/reports/json` | Export a scan as JSON |
+| `GET` | `/api/v1/scans/{id}/reports/markdown` | Export a scan as Markdown |
 
-Example request:
+The unversioned `GET /health` endpoint remains available for process checks. The existing `/scan` and `/reports/latest.*` routes remain available as deprecated compatibility routes while the dashboard migrates to `/api/v1`. GitHub URL input remains disabled until secure clone and workspace handling is implemented.
+
+## Configuration
+
+Copy `backend/.env.example` to `backend/.env` to override development settings. The default development database is SQLite. Apply schema changes before starting the API:
 
 ```bash
-curl --request POST http://127.0.0.1:8000/scan \
-  --header "Content-Type: application/json" \
-  --data '{"target":"/absolute/path/to/repository","target_type":"local_path"}'
+uv --directory backend run alembic upgrade head
 ```
 
-GitHub URL input is represented in the API model but intentionally disabled until secure clone/workspace handling is implemented.
+Production configuration fails fast unless `CODERISK_DATABASE_URL` uses PostgreSQL with the psycopg driver. Automatic schema creation is restricted to isolated tests; production migrations must be applied explicitly.
 
 ## Quality checks
 
@@ -120,6 +132,7 @@ Run the same checks used by CI:
 uv --directory backend run ruff check .
 uv --directory backend run ruff format --check .
 uv --directory backend run pytest --cov=app --cov-report=term-missing
+uv --directory backend run python -m scripts.openapi_contract --check
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
 npm --prefix frontend run test:coverage
@@ -132,8 +145,9 @@ Backend coverage must remain at or above 85%. Frontend coverage thresholds are c
 
 ```text
 backend/
-  app/          FastAPI endpoints, reporting, and scanner core
-  tests/        API, report, and scanner tests
+  alembic/      Database migrations
+  app/          API, domain, service, persistence, and scanner layers
+  tests/        API, migration, persistence, report, and scanner tests
 frontend/
   src/          React dashboard and component tests
 docs/           Scope and architecture documentation

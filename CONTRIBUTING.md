@@ -22,6 +22,7 @@ Install dependencies from the repository root:
 
 ```bash
 uv --directory backend sync --all-groups
+uv --directory backend run alembic upgrade head
 npm --prefix frontend ci
 ```
 
@@ -40,6 +41,7 @@ Run the complete local quality suite before opening a pull request:
 uv --directory backend run ruff check .
 uv --directory backend run ruff format --check .
 uv --directory backend run pytest --cov=app --cov-report=term-missing
+uv --directory backend run python -m scripts.openapi_contract --check
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
 npm --prefix frontend run test:coverage

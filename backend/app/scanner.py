@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from ipaddress import ip_address
 from pathlib import Path
-from typing import Literal
 from urllib.parse import urlsplit
 
-Severity = Literal["high", "medium", "low", "info"]
-FindingCategory = Literal["dependency", "metadata", "secret", "config", "sast"]
+from app.domain.reports import Finding, FindingCategory, RepoMetadata, ScanReport, Severity
 
 
 @dataclass(frozen=True)
@@ -89,7 +87,10 @@ SECRET_RULES = [
         id="database-url",
         title="Possible database URL exposure",
         severity="high",
-        pattern=re.compile(r"\bDATABASE_URL\s*=\s*['\"]?[^'\"\s]+", re.IGNORECASE),
+        pattern=re.compile(
+            r"\bDATABASE_URL\s*=\s*['\"]?[a-z][a-z0-9+.-]*://[^'\"\s]+",
+            re.IGNORECASE,
+        ),
         remediation="Load database URLs from environment variables outside git.",
         mask_evidence=True,
     ),
@@ -215,39 +216,6 @@ SAST_RULES = [
         file_suffixes=CODE_AND_CONFIG_SUFFIXES,
     ),
 ]
-
-
-@dataclass(frozen=True)
-class Finding:
-    id: str
-    category: FindingCategory
-    severity: Severity
-    title: str
-    file_path: str
-    line: int | None
-    evidence: str
-    remediation: str
-
-
-@dataclass(frozen=True)
-class RepoMetadata:
-    name: str
-    root_path: str
-    scanned_at_utc: str
-    total_files: int
-    dependency_files: list[str]
-
-
-@dataclass(frozen=True)
-class ScanReport:
-    metadata: RepoMetadata
-    findings: list[Finding]
-    severity_counts: dict[str, int]
-    score: int
-    file_tree: list[str]
-
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
 
 
 def scan_repository(repo_path: str) -> ScanReport:

@@ -1,6 +1,6 @@
 import json
 
-from app.scanner import ScanReport
+from app.domain.reports import ScanReport
 
 
 def report_to_json(report: ScanReport) -> str:

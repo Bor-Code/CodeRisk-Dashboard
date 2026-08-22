@@ -225,7 +225,9 @@ def test_scan_repository_does_not_match_rule_definitions_or_documentation(
     (repo / "rules.py").write_text(
         "CORS_PATTERN = r'(allow_origins|Access-Control-Allow-Origin).*(\\\\*)'\n"
         "DEFAULT_PATTERN = r'(secret|secret_key).*(default|dev-secret)'\n"
-        "HTML_PATTERN = r'dangerouslySetInnerHTML'\n",
+        "HTML_PATTERN = r'dangerouslySetInnerHTML'\n"
+        "database_url = settings.database_url.get_secret_value()\n"
+        "database_url = resolve_database_url()\n",
         encoding="utf-8",
     )
     (repo / "security.md").write_text(

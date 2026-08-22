@@ -1,68 +1,53 @@
-from typing import Literal
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
 
-from app.reporting import report_to_markdown
-from app.scanner import ScanReport, scan_repository
-
-app = FastAPI(title="CodeRisk Dashboard API", version="0.1.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-    ],
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
-
-LAST_REPORT: ScanReport | None = None
+from app.api.errors import register_exception_handlers
+from app.api.legacy import router as legacy_router
+from app.api.v1.router import router as v1_router
+from app.core.config import Settings, get_settings
+from app.db.session import create_database, prepare_database
 
 
-class ScanRequest(BaseModel):
-    target: str = Field(min_length=1)
-    target_type: Literal["local_path", "github_url"] = "local_path"
+def create_app(settings: Settings | None = None) -> FastAPI:
+    runtime_settings = settings or get_settings()
+    database = create_database(runtime_settings)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        try:
+            prepare_database(
+                database,
+                auto_create=runtime_settings.database_auto_create,
+            )
+            yield
+        finally:
+            database.engine.dispose()
+
+    application = FastAPI(
+        title="CodeRisk Dashboard API",
+        version="0.2.0",
+        description=(
+            "Persistent, versioned API for local repository security scans. "
+            "Legacy MVP routes remain available during the dashboard migration."
+        ),
+        lifespan=lifespan,
+    )
+    application.state.database = database
+    application.state.settings = runtime_settings
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=runtime_settings.cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
+    register_exception_handlers(application)
+    application.include_router(legacy_router)
+    application.include_router(v1_router)
+    return application
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-@app.post("/scan")
-def scan(request: ScanRequest) -> dict[str, object]:
-    global LAST_REPORT
-
-    if request.target_type == "github_url":
-        raise HTTPException(
-            status_code=400,
-            detail="GitHub URL scanning is planned, but remote clone is disabled in the MVP.",
-        )
-
-    try:
-        LAST_REPORT = scan_repository(request.target)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    return LAST_REPORT.to_dict()
-
-
-@app.get("/reports/latest.json")
-def latest_json_report() -> dict[str, object]:
-    if LAST_REPORT is None:
-        raise HTTPException(status_code=404, detail="No scan report exists yet.")
-
-    return LAST_REPORT.to_dict()
-
-
-@app.get("/reports/latest.md", response_class=PlainTextResponse)
-def latest_markdown_report() -> str:
-    if LAST_REPORT is None:
-        raise HTTPException(status_code=404, detail="No scan report exists yet.")
-
-    return report_to_markdown(LAST_REPORT)
+app = create_app()

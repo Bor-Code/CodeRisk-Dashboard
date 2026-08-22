@@ -51,6 +51,8 @@ jobs:
         run: uv run ruff format --check .
       - name: Run tests with coverage
         run: uv run pytest --cov=app --cov-report=term-missing --cov-report=xml
+      - name: Check OpenAPI contract
+        run: uv run python -m scripts.openapi_contract --check
 
   frontend:
     name: Frontend (Node 24)

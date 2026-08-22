@@ -12,7 +12,8 @@ dependencies = [
 dev = [
     "httpx>=0.28.0",
     "pytest>=8.4.0",
-    "ruff>=0.12.0"
+    "pytest-cov>=7.0.0",
+    "ruff>=0.12.0",
 ]
 
 [tool.ruff]
@@ -23,5 +24,16 @@ target-version = "py311"
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 85
+precision = 1
+show_missing = true
+skip_covered = true

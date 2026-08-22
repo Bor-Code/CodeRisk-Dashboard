@@ -95,6 +95,15 @@ SECRET_RULES = [
         mask_evidence=True,
     ),
     PatternRule(
+        id="weak-jwt-secret",
+        title="Weak JWT secret detected",
+        severity="medium",
+        # Match JWT_SECRET assignments with a short value (<=15 chars) to flag weak secrets
+        pattern=re.compile(r"\bJWT_SECRET\s*=\s*['\"]?([^'\"\s]{1,15})['\"]?", re.IGNORECASE),
+        remediation="Use a strong JWT secret (>=32 chars) kept out of source control.",
+        mask_evidence=True,
+    ),
+    PatternRule(
         id="jwt-secret",
         title="Possible JWT secret exposure",
         severity="high",

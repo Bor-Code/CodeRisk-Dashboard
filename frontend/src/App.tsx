@@ -6,6 +6,7 @@ type Severity = "high" | "medium" | "low" | "info"
 
 type Finding = {
   id: string
+  rule_id?: string | null
   category: string
   severity: Severity
   title: string
@@ -162,6 +163,7 @@ function App() {
                     <tr>
                       <th>Severity</th>
                       <th>Category</th>
+                      <th>Rule</th>
                       <th>Finding</th>
                       <th>Path</th>
                       <th>Remediation</th>
@@ -176,6 +178,7 @@ function App() {
                           </span>
                         </td>
                         <td>{finding.category}</td>
+                        <td>{finding.rule_id ?? (finding.id.split('-')[1] ?? '-')}</td>
                         <td>
                           <strong>{finding.title}</strong>
                           <span>{finding.evidence}</span>

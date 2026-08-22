@@ -250,7 +250,11 @@ td {
 }
 .error-message {
   margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgb(255 211 211 / 70%);
+  border-radius: 6px;
   color: #ffd3d3;
+  background: rgb(143 29 18 / 24%);
   font-weight: 700;
 }
 
@@ -267,12 +271,6 @@ td {
   color: #667085;
 }
 
-.repo-panel a {
-  display: inline-block;
-  margin-right: 12px;
-  color: #1b76d1;
-  font-weight: 700;
-}
 .score-card.good {
   border-color: #a7e4c1;
 }
@@ -283,4 +281,24 @@ td {
 
 .score-card.bad {
   border-color: #ffb4a8;
+}
+
+.repo-panel dd a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 86px;
+  margin: 4px 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #c9d8ea;
+  border-radius: 6px;
+  color: #1b76d1;
+  background: #f7fbff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.repo-panel dd a:hover {
+  border-color: #1b76d1;
+  background: #eef6ff;
 }

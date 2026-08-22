@@ -3,11 +3,25 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 Severity = Literal["high", "medium", "low", "info"]
 FindingCategory = Literal["dependency", "metadata", "secret", "config", "sast"]
+
+
+@dataclass(frozen=True)
+class PatternRule:
+    id: str
+    title: str
+    severity: Severity
+    pattern: re.Pattern[str]
+    remediation: str
+    file_suffixes: frozenset[str] | None = None
+    mask_evidence: bool = False
+
 
 DEPENDENCY_FILES = {
     "package.json",
@@ -15,6 +29,8 @@ DEPENDENCY_FILES = {
     "requirements.txt",
     "pyproject.toml",
     "poetry.lock",
+    "yarn.lock",
+    "pnpm-lock.yaml",
 }
 
 IGNORED_DIR_NAMES = {
@@ -46,123 +62,157 @@ TEXT_FILE_SUFFIXES = {
 
 MAX_TEXT_FILE_SIZE_BYTES = 400_000
 
-SECRET_PATTERNS = [
-    (
-        "github-token",
-        "Possible GitHub token exposure",
-        re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
-        "Rotate the token and remove it from repository history.",
+CODE_AND_CONFIG_SUFFIXES = frozenset(
+    {".env", ".js", ".jsx", ".json", ".py", ".toml", ".ts", ".tsx", ".yaml", ".yml"}
+)
+PYTHON_SUFFIXES = frozenset({".py"})
+REACT_SUFFIXES = frozenset({".jsx", ".tsx"})
+
+SECRET_RULES = [
+    PatternRule(
+        id="github-token",
+        title="Possible GitHub token exposure",
+        severity="high",
+        pattern=re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
+        remediation="Rotate the token and remove it from repository history.",
+        mask_evidence=True,
     ),
-    (
-        "private-key",
-        "Possible private key exposure",
-        re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-        "Remove the key from git history and generate a new key pair.",
+    PatternRule(
+        id="private-key",
+        title="Possible private key exposure",
+        severity="high",
+        pattern=re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+        remediation="Remove the key from git history and generate a new key pair.",
+        mask_evidence=True,
     ),
-    (
-        "database-url",
-        "Possible database URL exposure",
-        re.compile(r"\bDATABASE_URL\s*=\s*['\"]?[^'\"\s]+", re.IGNORECASE),
-        "Load database URLs from environment variables outside git.",
+    PatternRule(
+        id="database-url",
+        title="Possible database URL exposure",
+        severity="high",
+        pattern=re.compile(r"\bDATABASE_URL\s*=\s*['\"]?[^'\"\s]+", re.IGNORECASE),
+        remediation="Load database URLs from environment variables outside git.",
+        mask_evidence=True,
     ),
-    (
-        "jwt-secret",
-        "Possible JWT secret exposure",
-        re.compile(r"\bJWT_SECRET\s*=\s*['\"]?[^'\"\s]+", re.IGNORECASE),
-        "Use a strong environment-specific JWT secret outside source control.",
+    PatternRule(
+        id="jwt-secret",
+        title="Possible JWT secret exposure",
+        severity="high",
+        pattern=re.compile(r"\bJWT_SECRET\s*=\s*['\"]?[^'\"\s]+", re.IGNORECASE),
+        remediation="Use a strong environment-specific JWT secret outside source control.",
+        mask_evidence=True,
     ),
-    (
-        "api-key",
-        "Possible API key or token exposure",
-        re.compile(
+    PatternRule(
+        id="api-key",
+        title="Possible API key or token exposure",
+        severity="high",
+        pattern=re.compile(
             r"\b[A-Z0-9_]*(API_KEY|ACCESS_TOKEN|AUTH_TOKEN)\s*=\s*['\"]?[^'\"\s]+",
             re.IGNORECASE,
         ),
-        "Move the value to a secret manager or environment variable.",
+        remediation="Move the value to a secret manager or environment variable.",
+        mask_evidence=True,
     ),
 ]
 
-CONFIG_PATTERNS = [
-    (
-        "debug-enabled",
-        "Debug mode appears enabled",
-        "medium",
-        re.compile(r"\bDEBUG\s*=\s*(true|1|yes)", re.IGNORECASE),
-        "Disable debug mode outside local development.",
+CONFIG_RULES = [
+    PatternRule(
+        id="debug-enabled",
+        title="Debug mode appears enabled",
+        severity="medium",
+        pattern=re.compile(r"\bDEBUG\s*=\s*(true|1|yes)\b", re.IGNORECASE),
+        remediation="Disable debug mode outside local development.",
+        file_suffixes=CODE_AND_CONFIG_SUFFIXES,
     ),
-    (
-        "cors-wildcard",
-        "Wildcard CORS configuration",
-        "medium",
-        re.compile(
-            r"(allow_origins|Access-Control-Allow-Origin).*(\*|\[.*\*.*\])",
+    PatternRule(
+        id="cors-wildcard",
+        title="Wildcard CORS configuration",
+        severity="medium",
+        pattern=re.compile(
+            r"\ballow_origins\s*=\s*\[[^\]]*['\"]\*['\"][^\]]*\]"
+            r"|Access-Control-Allow-Origin['\"]?\s*[:=]\s*['\"]\*['\"]",
             re.IGNORECASE,
         ),
-        "Restrict CORS origins to known frontend domains.",
+        remediation="Restrict CORS origins to known frontend domains.",
+        file_suffixes=CODE_AND_CONFIG_SUFFIXES,
     ),
-    (
-        "default-secret",
-        "Default secret value detected",
-        "medium",
-        re.compile(
-            r"(secret|jwt_secret|secret_key).*(changeme|default|dev-secret)",
+    PatternRule(
+        id="default-secret",
+        title="Default secret value detected",
+        severity="medium",
+        pattern=re.compile(
+            r"\b(secret|jwt_secret|secret_key)\s*[:=]\s*['\"]?"
+            r"(changeme|default|dev-secret)\b",
             re.IGNORECASE,
         ),
-        "Replace default secrets with unique environment-specific values.",
+        remediation="Replace default secrets with unique environment-specific values.",
+        file_suffixes=CODE_AND_CONFIG_SUFFIXES,
+        mask_evidence=True,
     ),
-    (
-        "localstorage-token",
-        "Token stored in localStorage",
-        "low",
-        re.compile(
-            r"localStorage\.(setItem|getItem)\(['\"][^'\"]*(token|jwt|auth)",
+    PatternRule(
+        id="localstorage-token",
+        title="Token stored in localStorage",
+        severity="low",
+        pattern=re.compile(
+            r"localStorage\.(setItem|getItem)\(\s*['\"][^'\"]*(token|jwt|auth)",
             re.IGNORECASE,
         ),
-        "Consider httpOnly cookies for browser sessions when the architecture allows it.",
+        remediation=(
+            "Consider httpOnly cookies for browser sessions when the architecture allows it."
+        ),
+        file_suffixes=CODE_AND_CONFIG_SUFFIXES,
     ),
 ]
 
-SAST_PATTERNS = [
-    (
-        "python-sql-string-concat",
-        "Possible SQL string concatenation",
-        "high",
-        re.compile(r"(execute|executemany)\(.+[+%].+\)", re.IGNORECASE),
-        "Use parameterized queries instead of building SQL strings.",
+SAST_RULES = [
+    PatternRule(
+        id="python-sql-string-concat",
+        title="Possible SQL string concatenation",
+        severity="high",
+        pattern=re.compile(r"(execute|executemany)\(.+[+%].+\)", re.IGNORECASE),
+        remediation="Use parameterized queries instead of building SQL strings.",
+        file_suffixes=PYTHON_SUFFIXES,
     ),
-    (
-        "hardcoded-password",
-        "Possible hardcoded password",
-        "high",
-        re.compile(
+    PatternRule(
+        id="hardcoded-password",
+        title="Possible hardcoded password",
+        severity="high",
+        pattern=re.compile(
             r"\b(password|passwd|pwd)\s*=\s*['\"][^'\"]{4,}['\"]",
             re.IGNORECASE,
         ),
-        "Move passwords to environment variables or a secret manager.",
+        remediation="Move passwords to environment variables or a secret manager.",
+        file_suffixes=CODE_AND_CONFIG_SUFFIXES,
+        mask_evidence=True,
     ),
-    (
-        "unsafe-subprocess-shell",
-        "Subprocess uses shell=True",
-        "medium",
-        re.compile(
+    PatternRule(
+        id="unsafe-subprocess-shell",
+        title="Subprocess uses shell=True",
+        severity="medium",
+        pattern=re.compile(
             r"subprocess\.(run|call|Popen)\(.+shell\s*=\s*True",
             re.IGNORECASE,
         ),
-        "Avoid shell=True and pass command arguments as a list.",
+        remediation="Avoid shell=True and pass command arguments as a list.",
+        file_suffixes=PYTHON_SUFFIXES,
     ),
-    (
-        "dangerously-set-inner-html",
-        "React dangerouslySetInnerHTML usage",
-        "medium",
-        re.compile(r"dangerouslySetInnerHTML"),
-        "Avoid raw HTML rendering or sanitize trusted HTML before rendering.",
+    PatternRule(
+        id="dangerously-set-inner-html",
+        title="React dangerouslySetInnerHTML usage",
+        severity="medium",
+        pattern=re.compile(r"\bdangerouslySetInnerHTML\s*="),
+        remediation="Avoid raw HTML rendering or sanitize trusted HTML before rendering.",
+        file_suffixes=REACT_SUFFIXES,
     ),
-    (
-        "insecure-http-url",
-        "Insecure HTTP URL",
-        "low",
-        re.compile(r"['\"]http://[^'\"]+['\"]", re.IGNORECASE),
-        "Prefer HTTPS endpoints unless local development explicitly requires HTTP.",
+    PatternRule(
+        id="insecure-http-url",
+        title="Insecure HTTP URL",
+        severity="low",
+        pattern=re.compile(
+            r"(?P<quote>['\"])(?P<url>http://[^'\"\s]+)(?P=quote)",
+            re.IGNORECASE,
+        ),
+        remediation="Prefer HTTPS endpoints unless local development explicitly requires HTTP.",
+        file_suffixes=CODE_AND_CONFIG_SUFFIXES,
     ),
 ]
 
@@ -212,10 +262,9 @@ def scan_repository(repo_path: str) -> ScanReport:
     findings.extend(_build_config_findings(root, files))
 
     for path in files:
-        findings.extend(_scan_file_for_secrets(root, path))
-        findings.extend(_scan_file_for_config_patterns(root, path))
-        findings.extend(_scan_file_for_sast_patterns(root, path))
+        findings.extend(_scan_file(root, path))
 
+    findings = _sort_findings(findings)
     severity_counts = _count_severities(findings)
     metadata = RepoMetadata(
         name=root.name,
@@ -330,7 +379,7 @@ def _build_config_findings(root: Path, files: list[Path]) -> list[Finding]:
     return findings
 
 
-def _scan_file_for_secrets(root: Path, path: Path) -> list[Finding]:
+def _scan_file(root: Path, path: Path) -> list[Finding]:
     if not _is_text_file_candidate(path):
         return []
 
@@ -340,110 +389,93 @@ def _scan_file_for_secrets(root: Path, path: Path) -> list[Finding]:
         return []
 
     relative_path = str(path.relative_to(root)).replace("\\", "/")
+    lines = content.splitlines()
     findings: list[Finding] = []
 
-    for line_number, line in enumerate(content.splitlines(), start=1):
-        for rule_id, title, pattern, remediation in SECRET_PATTERNS:
-            if not pattern.search(line):
-                continue
-
-            findings.append(
-                Finding(
-                    id=f"secret-{rule_id}-{relative_path}-{line_number}",
-                    category="secret",
-                    severity="high",
-                    title=title,
-                    file_path=relative_path,
-                    line=line_number,
-                    evidence=_mask_secret_line(line),
-                    remediation=remediation,
-                )
-            )
+    for category, rules in (
+        ("secret", SECRET_RULES),
+        ("config", CONFIG_RULES),
+        ("sast", SAST_RULES),
+    ):
+        applicable_rules = [rule for rule in rules if _rule_applies_to_path(rule, path)]
+        findings.extend(_scan_lines_for_rules(relative_path, lines, category, applicable_rules))
 
     return findings
 
 
-def _scan_file_for_config_patterns(root: Path, path: Path) -> list[Finding]:
-    if not _is_text_file_candidate(path):
-        return []
-
-    content = _read_text(path)
-
-    if content is None:
-        return []
-
-    relative_path = str(path.relative_to(root)).replace("\\", "/")
+def _scan_lines_for_rules(
+    relative_path: str,
+    lines: list[str],
+    category: FindingCategory,
+    rules: list[PatternRule],
+) -> list[Finding]:
     findings: list[Finding] = []
 
-    for line_number, line in enumerate(content.splitlines(), start=1):
-        for rule_id, title, severity, pattern, remediation in CONFIG_PATTERNS:
-            if not pattern.search(line):
+    for line_number, line in enumerate(lines, start=1):
+        for rule in rules:
+            matches = list(rule.pattern.finditer(line))
+
+            if not matches:
                 continue
 
-            if rule_id == "default-secret":
-                evidence = _mask_secret_line(line)
-            else:
-                evidence = line.strip()[:180]
+            if rule.id == "insecure-http-url" and all(
+                _is_loopback_http_url(match.group("url")) for match in matches
+            ):
+                continue
 
+            evidence = _mask_secret_line(line) if rule.mask_evidence else line.strip()[:180]
             findings.append(
                 Finding(
-                    id=f"config-{rule_id}-{relative_path}-{line_number}",
-                    category="config",
-                    severity=severity,
-                    title=title,
+                    id=f"{category}-{rule.id}-{relative_path}-{line_number}",
+                    category=category,
+                    severity=rule.severity,
+                    title=rule.title,
                     file_path=relative_path,
                     line=line_number,
                     evidence=evidence,
-                    remediation=remediation,
+                    remediation=rule.remediation,
                 )
             )
 
     return findings
 
 
-def _scan_file_for_sast_patterns(root: Path, path: Path) -> list[Finding]:
-    if not _is_text_file_candidate(path):
-        return []
+def _rule_applies_to_path(rule: PatternRule, path: Path) -> bool:
+    return rule.file_suffixes is None or _normalized_suffix(path) in rule.file_suffixes
 
-    content = _read_text(path)
 
-    if content is None:
-        return []
+def _is_loopback_http_url(url: str) -> bool:
+    try:
+        hostname = urlsplit(url).hostname
+    except ValueError:
+        return False
 
-    relative_path = str(path.relative_to(root)).replace("\\", "/")
-    findings: list[Finding] = []
+    if hostname is None:
+        return False
 
-    for line_number, line in enumerate(content.splitlines(), start=1):
-        for rule_id, title, severity, pattern, remediation in SAST_PATTERNS:
-            if not pattern.search(line):
-                continue
+    hostname = hostname.rstrip(".").lower()
 
-            if rule_id == "hardcoded-password":
-                evidence = _mask_secret_line(line)
-            else:
-                evidence = line.strip()[:180]
+    if hostname == "localhost":
+        return True
 
-            findings.append(
-                Finding(
-                    id=f"sast-{rule_id}-{relative_path}-{line_number}",
-                    category="sast",
-                    severity=severity,
-                    title=title,
-                    file_path=relative_path,
-                    line=line_number,
-                    evidence=evidence,
-                    remediation=remediation,
-                )
-            )
-
-    return findings
+    try:
+        return ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _is_text_file_candidate(path: Path) -> bool:
     if path.stat().st_size > MAX_TEXT_FILE_SIZE_BYTES:
         return False
 
-    return path.suffix.lower() in TEXT_FILE_SUFFIXES or path.name in {".env", ".gitignore"}
+    return _normalized_suffix(path) in TEXT_FILE_SUFFIXES or path.name == ".gitignore"
+
+
+def _normalized_suffix(path: Path) -> str:
+    if path.name == ".env" or path.name.startswith(".env."):
+        return ".env"
+
+    return path.suffix.lower()
 
 
 def _read_text(path: Path) -> str | None:
@@ -466,6 +498,20 @@ def _mask_secret_line(line: str) -> str:
         masked_value = f"{clean_value[:3]}***{clean_value[-3:]}"
 
     return f"{key.strip()}={masked_value}"
+
+
+def _sort_findings(findings: list[Finding]) -> list[Finding]:
+    severity_rank = {"high": 0, "medium": 1, "low": 2, "info": 3}
+
+    return sorted(
+        findings,
+        key=lambda finding: (
+            severity_rank[finding.severity],
+            finding.category,
+            finding.file_path,
+            finding.line or 0,
+        ),
+    )
 
 
 def _count_severities(findings: list[Finding]) -> dict[str, int]:

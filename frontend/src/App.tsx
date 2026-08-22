@@ -89,7 +89,8 @@ function App() {
           <p className="eyebrow">Mini DevSecOps Security Dashboard</p>
           <h1>CodeRisk Dashboard</h1>
           <p className="hero-copy">
-            Local repoyu tarayÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±p dependency, secret, config ve basic SAST bulgularÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â± tek ekranda gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶sterir.
+            Scan a local repository and review dependency, secret, configuration,
+            and basic SAST findings in one place.
           </p>
         </div>
 
@@ -100,7 +101,7 @@ function App() {
               id="target"
               value={target}
               onChange={(event) => setTarget(event.target.value)}
-              placeholder="C:\Users\nonmr\Desktop\Projeler\CodeRisk-Dashboard"
+              placeholder="/path/to/repository"
             />
             <button disabled={target.trim().length === 0 || isLoading} type="submit">
               {isLoading ? "Scanning" : "Scan"}
@@ -113,7 +114,11 @@ function App() {
       {report ? (
         <>
           <section className="summary-grid">
-            <article className={`summary-card score-card ${report.score >= 80 ? "good" : report.score >= 50 ? "warn" : "bad"}`}>
+            <article
+              className={`summary-card score-card ${
+                report.score >= 80 ? "good" : report.score >= 50 ? "warn" : "bad"
+              }`}
+            >
               <span>Security Score</span>
               <strong>{report.score}/100</strong>
             </article>
@@ -176,7 +181,7 @@ function App() {
                           <span>{finding.evidence}</span>
                         </td>
                         <td>
-                          {finding.line
+                          {finding.line !== null
                             ? `${finding.file_path}:${finding.line}`
                             : finding.file_path}
                         </td>
@@ -206,10 +211,18 @@ function App() {
                 <div>
                   <dt>Exports</dt>
                   <dd>
-                    <a href={`${apiBaseUrl}/reports/latest.json`} target="_blank">
+                    <a
+                      href={`${apiBaseUrl}/reports/latest.json`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       JSON
                     </a>
-                    <a href={`${apiBaseUrl}/reports/latest.md`} target="_blank">
+                    <a
+                      href={`${apiBaseUrl}/reports/latest.md`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       Markdown
                     </a>
                   </dd>
@@ -221,7 +234,10 @@ function App() {
       ) : (
         <section className="empty-state">
           <h2>Waiting for scan</h2>
-          <p>Backend ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§alÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±rken local repo path gir ve ilk gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼venlik raporunu ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ret.</p>
+          <p>
+            Start the backend, enter a local repository path, and generate your first
+            security report.
+          </p>
         </section>
       )}
     </main>

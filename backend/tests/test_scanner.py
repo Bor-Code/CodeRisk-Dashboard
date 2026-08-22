@@ -177,3 +177,115 @@ def test_scan_repository_masks_hardcoded_password_evidence(tmp_path: Path) -> No
     assert len(password_findings) == 1
     assert "supersecret123" not in password_findings[0].evidence
     assert "***" in password_findings[0].evidence
+
+
+def test_scan_repository_detects_node_lockfiles(tmp_path: Path) -> None:
+    repo = tmp_path / "sample-repo"
+    repo.mkdir()
+    (repo / ".gitignore").write_text(".env\n", encoding="utf-8")
+    (repo / "yarn.lock").write_text("# yarn lockfile\n", encoding="utf-8")
+    (repo / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+
+    report = scan_repository(str(repo))
+
+    assert report.metadata.dependency_files == ["pnpm-lock.yaml", "yarn.lock"]
+
+
+def test_scan_repository_sorts_findings_by_severity(tmp_path: Path) -> None:
+    repo = tmp_path / "sample-repo"
+    repo.mkdir()
+    (repo / ".gitignore").write_text(".env\n", encoding="utf-8")
+    (repo / "pyproject.toml").write_text("[project]\nname = 'sample'\n", encoding="utf-8")
+    (repo / "settings.py").write_text(
+        "password = 'admin123'\nDEBUG=true\n",
+        encoding="utf-8",
+    )
+    (repo / "client.ts").write_text(
+        "const apiUrl = 'http://example.com'\n",
+        encoding="utf-8",
+    )
+
+    report = scan_repository(str(repo))
+
+    assert [finding.severity for finding in report.findings] == [
+        "high",
+        "medium",
+        "low",
+        "info",
+    ]
+
+
+def test_scan_repository_does_not_match_rule_definitions_or_documentation(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "sample-repo"
+    repo.mkdir()
+    (repo / ".gitignore").write_text(".env\n", encoding="utf-8")
+    (repo / "pyproject.toml").write_text("[project]\nname = 'sample'\n", encoding="utf-8")
+    (repo / "rules.py").write_text(
+        "CORS_PATTERN = r'(allow_origins|Access-Control-Allow-Origin).*(\\\\*)'\n"
+        "DEFAULT_PATTERN = r'(secret|secret_key).*(default|dev-secret)'\n"
+        "HTML_PATTERN = r'dangerouslySetInnerHTML'\n",
+        encoding="utf-8",
+    )
+    (repo / "security.md").write_text(
+        "Avoid dangerouslySetInnerHTML and replace http://example.com URLs.\n",
+        encoding="utf-8",
+    )
+
+    report = scan_repository(str(repo))
+
+    assert [(finding.category, finding.severity) for finding in report.findings] == [
+        ("dependency", "info")
+    ]
+
+
+def test_scan_repository_ignores_loopback_http_urls(tmp_path: Path) -> None:
+    repo = tmp_path / "sample-repo"
+    repo.mkdir()
+    (repo / ".gitignore").write_text(".env\n", encoding="utf-8")
+    (repo / "package.json").write_text("{}", encoding="utf-8")
+    (repo / "client.ts").write_text(
+        "const local = 'http://localhost:8000'\n"
+        "const ipv4 = 'http://127.0.0.1:8000'\n"
+        "const ipv6 = 'http://[::1]:8000'\n"
+        "const remote = 'http://example.com'\n",
+        encoding="utf-8",
+    )
+
+    report = scan_repository(str(repo))
+    http_findings = [finding for finding in report.findings if finding.title == "Insecure HTTP URL"]
+
+    assert len(http_findings) == 1
+    assert http_findings[0].line == 4
+
+
+def test_scan_repository_applies_sast_rules_to_supported_languages(tmp_path: Path) -> None:
+    repo = tmp_path / "sample-repo"
+    repo.mkdir()
+    (repo / ".gitignore").write_text(".env\n", encoding="utf-8")
+    (repo / "package.json").write_text("{}", encoding="utf-8")
+    (repo / "notes.md").write_text(
+        "subprocess.run(command, shell=True)\n<div dangerouslySetInnerHTML={{__html: html}} />\n",
+        encoding="utf-8",
+    )
+    (repo / "client.ts").write_text(
+        "subprocess.run(command, shell=True)\n",
+        encoding="utf-8",
+    )
+    (repo / "component.tsx").write_text(
+        "return <div dangerouslySetInnerHTML={{__html: html}} />\n",
+        encoding="utf-8",
+    )
+    (repo / "main.py").write_text(
+        "subprocess.run(command, shell=True)\n",
+        encoding="utf-8",
+    )
+
+    report = scan_repository(str(repo))
+    sast_findings = [finding for finding in report.findings if finding.category == "sast"]
+
+    assert {(finding.title, finding.file_path) for finding in sast_findings} == {
+        ("React dangerouslySetInnerHTML usage", "component.tsx"),
+        ("Subprocess uses shell=True", "main.py"),
+    }

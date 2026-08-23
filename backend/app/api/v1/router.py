@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Response, status
 from fastapi.responses import PlainTextResponse
@@ -26,7 +26,8 @@ from app.reporting import report_to_markdown
 router = APIRouter(prefix="/api/v1")
 
 PROBLEM_CONTENT = {"application/problem+json": {"schema": ProblemDetail.model_json_schema()}}
-ERROR_RESPONSES = {
+
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     400: {"description": "Invalid scan target", "content": PROBLEM_CONTENT},
     404: {"description": "Resource not found", "content": PROBLEM_CONTENT},
     422: {"description": "Request validation failed", "content": PROBLEM_CONTENT},

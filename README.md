@@ -13,14 +13,15 @@ CodeRisk Dashboard is a self-hosted security review workspace for turning reposi
 
 - Scan a local repository without uploading its source code.
 - Detect supported dependency manifests and lockfiles.
-- Identify secret-like values while masking evidence before it reaches reports.
-- Check common insecure configuration and basic Python/React source patterns.
+- Identify secret-like values (AWS, Stripe, Slack, etc.) while masking evidence before it reaches reports.
+- Check common insecure configuration and basic Python (eval/exec)/React source patterns.
 - Filter findings by severity and calculate a deterministic 0–100 score.
-- Persist repositories, scan history, findings, and engine-run metadata. (Added: persist scan history behind a versioned API — migration and v1 endpoints)
+- Persist repositories, scan history, findings, and engine-run metadata.
 - Expose a versioned API with pagination, filtering, and per-scan exports.
 - Export the latest report as JSON or Markdown through compatibility routes.
 - Ignore generated directories and constrain text-file size during scanning.
-- Validate scanner, API, and dashboard behavior with automated tests and coverage gates.
+- Validate scanner, API, and dashboard behavior with automated unit and Playwright E2E tests.
+
 
 ## Product direction
 

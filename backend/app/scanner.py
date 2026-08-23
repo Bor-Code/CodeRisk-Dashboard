@@ -122,6 +122,32 @@ SECRET_RULES = [
         remediation="Move the value to a secret manager or environment variable.",
         mask_evidence=True,
     ),
+    PatternRule(
+        id="aws-access-key",
+        title="AWS Access Key ID exposure",
+        severity="high",
+        pattern=re.compile(r"\b(AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b"),
+        remediation="Rotate the AWS credentials and use IAM roles where possible.",
+        mask_evidence=True,
+    ),
+    PatternRule(
+        id="stripe-secret-key",
+        title="Stripe Secret Key exposure",
+        severity="high",
+        pattern=re.compile(r"\b(?:sk_live|rk_live)_[0-9a-zA-Z]{24,99}\b"),
+        remediation="Rotate Stripe keys via Stripe Dashboard.",
+        mask_evidence=True,
+    ),
+    PatternRule(
+        id="slack-webhook",
+        title="Slack Webhook exposure",
+        severity="high",
+        pattern=re.compile(
+            r"https://hooks\.slack\.com/services/T[a-zA-Z0-9_]+/B[a-zA-Z0-9_]+/[a-zA-Z0-9_]+"
+        ),
+        remediation="Revoke the webhook URL in Slack and use secrets manager.",
+        mask_evidence=True,
+    ),
 ]
 
 CONFIG_RULES = [
@@ -223,6 +249,14 @@ SAST_RULES = [
         ),
         remediation="Prefer HTTPS endpoints unless local development explicitly requires HTTP.",
         file_suffixes=CODE_AND_CONFIG_SUFFIXES,
+    ),
+    PatternRule(
+        id="python-eval-exec",
+        title="Usage of eval(), exec() or pickle",
+        severity="high",
+        pattern=re.compile(r"\b(eval|exec|pickle\.loads)\s*\("),
+        remediation="Avoid dynamic execution or deserialization of untrusted data.",
+        file_suffixes=PYTHON_SUFFIXES,
     ),
 ]
 
@@ -369,11 +403,12 @@ def _scan_file(root: Path, path: Path) -> list[Finding]:
     lines = content.splitlines()
     findings: list[Finding] = []
 
-    for category, rules in (
+    categories: list[tuple[FindingCategory, list[PatternRule]]] = [
         ("secret", SECRET_RULES),
         ("config", CONFIG_RULES),
         ("sast", SAST_RULES),
-    ):
+    ]
+    for category, rules in categories:
         applicable_rules = [rule for rule in rules if _rule_applies_to_path(rule, path)]
         findings.extend(_scan_lines_for_rules(relative_path, lines, category, applicable_rules))
 

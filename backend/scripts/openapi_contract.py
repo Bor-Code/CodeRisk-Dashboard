@@ -9,7 +9,7 @@ DEFAULT_OUTPUT_PATH = Path(__file__).resolve().parents[2] / "docs" / "openapi.js
 
 
 def render_openapi_contract() -> str:
-    settings = Settings(_env_file=None)
+    settings = Settings()
     application = create_app(settings)
     return json.dumps(application.openapi(), indent=2, sort_keys=True) + "\n"
 

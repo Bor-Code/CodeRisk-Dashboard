@@ -95,7 +95,7 @@ function App() {
           </p>
         </div>
 
-        <form className="scan-panel" onSubmit={handleScan}>
+        <form className="scan-panel glass-panel" onSubmit={handleScan}>
           <label htmlFor="target">Repository Path</label>
           <div className="scan-row">
             <input
@@ -105,7 +105,13 @@ function App() {
               placeholder="/path/to/repository"
             />
             <button disabled={target.trim().length === 0 || isLoading} type="submit">
-              {isLoading ? "Scanning" : "Scan"}
+              {isLoading ? (
+                <>
+                  <span className="spinner"></span> Scanning
+                </>
+              ) : (
+                "Scan"
+              )}
             </button>
           </div>
           {error ? <p className="error-message">{error}</p> : null}
@@ -116,29 +122,29 @@ function App() {
         <>
           <section className="summary-grid">
             <article
-              className={`summary-card score-card ${
+              className={`summary-card glass-panel score-card ${
                 report.score >= 80 ? "good" : report.score >= 50 ? "warn" : "bad"
               }`}
             >
               <span>Security Score</span>
               <strong>{report.score}/100</strong>
             </article>
-            <article className="summary-card">
+            <article className="summary-card glass-panel">
               <span>High</span>
               <strong>{report.severity_counts.high}</strong>
             </article>
-            <article className="summary-card">
+            <article className="summary-card glass-panel">
               <span>Medium</span>
               <strong>{report.severity_counts.medium}</strong>
             </article>
-            <article className="summary-card">
+            <article className="summary-card glass-panel">
               <span>Low</span>
               <strong>{report.severity_counts.low}</strong>
             </article>
           </section>
 
           <section className="dashboard-grid">
-            <div className="findings-panel">
+            <div className="findings-panel glass-panel">
               <div className="panel-header">
                 <div>
                   <h2>Findings</h2>
@@ -180,8 +186,8 @@ function App() {
                         <td>{finding.category}</td>
                         <td>{finding.rule_id ?? (finding.id.split('-')[1] ?? '-')}</td>
                         <td>
-                          <strong>{finding.title}</strong>
-                          <span>{finding.evidence}</span>
+                          <strong style={{display: 'block', marginBottom: '4px'}}>{finding.title}</strong>
+                          <span style={{color: 'var(--text-secondary)'}}>{finding.evidence}</span>
                         </td>
                         <td>
                           {finding.line !== null
@@ -196,7 +202,7 @@ function App() {
               </div>
             </div>
 
-            <aside className="repo-panel">
+            <aside className="repo-panel glass-panel">
               <h2>Repo Summary</h2>
               <dl>
                 <div>
@@ -235,7 +241,7 @@ function App() {
           </section>
         </>
       ) : (
-        <section className="empty-state">
+        <section className="empty-state glass-panel">
           <h2>Waiting for scan</h2>
           <p>
             Start the backend, enter a local repository path, and generate your first

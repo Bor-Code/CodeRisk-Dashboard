@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.jobs.worker import ScanWorker
 from app.main import create_app
 
 
@@ -23,6 +24,13 @@ def _make_repository(tmp_path: Path) -> Path:
     (repo / "pyproject.toml").write_text("[project]\nname = 'sample'\n", encoding="utf-8")
     (repo / "settings.py").write_text("DEBUG=true\n", encoding="utf-8")
     return repo
+
+
+def _process_scans(client: TestClient) -> None:
+    settings = client.app.state.settings
+    worker = ScanWorker(client.app.state.database, settings, worker_id="test-worker")
+    while worker.run_once():
+        pass
 
 
 def test_repository_creation_is_idempotent_and_paginated(
@@ -54,10 +62,11 @@ def test_v1_scan_history_filters_findings_and_exports_reports(
     first_response = client.post(f"/api/v1/repositories/{repository['id']}/scans")
     second_response = client.post(f"/api/v1/repositories/{repository['id']}/scans")
 
-    assert first_response.status_code == 201
-    assert second_response.status_code == 201
-    first_scan = first_response.json()
-    second_scan = second_response.json()
+    assert first_response.status_code == 202
+    assert second_response.status_code == 202
+    _process_scans(client)
+    first_scan = client.get(f"/api/v1/scans/{first_response.json()['id']}").json()
+    second_scan = client.get(f"/api/v1/scans/{second_response.json()['id']}").json()
     assert first_scan["id"] != second_scan["id"]
     assert first_scan["status"] == "completed"
     assert first_scan["severity_counts"]["medium"] == 1
@@ -98,6 +107,7 @@ def test_scan_history_survives_application_restart(
         repository = _create_repository(first_client, repo)
         scan_response = first_client.post(f"/api/v1/repositories/{repository['id']}/scans")
         scan_id = scan_response.json()["id"]
+        _process_scans(first_client)
 
     second_application = create_app(test_settings)
 
@@ -125,10 +135,11 @@ def test_persisted_secret_evidence_remains_masked(
 
     scan_response = client.post(f"/api/v1/repositories/{repository['id']}/scans")
     scan_id = scan_response.json()["id"]
+    _process_scans(client)
     findings_response = client.get(f"/api/v1/scans/{scan_id}/findings?category=secret")
     report_response = client.get(f"/api/v1/scans/{scan_id}/reports/json")
 
-    assert scan_response.status_code == 201
+    assert scan_response.status_code == 202
     assert findings_response.json()["total"] == 1
     assert raw_credential not in findings_response.text
     assert raw_credential not in report_response.text
@@ -142,16 +153,17 @@ def test_scan_failure_is_persisted_without_exposing_internal_error_details(
 ) -> None:
     repository = _create_repository(client, _make_repository(tmp_path))
 
-    def fail_scan(_target: str) -> None:
-        raise OSError("private filesystem detail")
+    def fail_scan(*args, **kwargs):
+        from app.jobs.errors import ScanProcessError
 
-    monkeypatch.setattr("app.services.scans.scan_repository", fail_scan)
+        raise ScanProcessError()
+
+    monkeypatch.setattr("app.jobs.executor.ProcessScanExecutor.execute", fail_scan)
     response = client.post(f"/api/v1/repositories/{repository['id']}/scans")
+    _process_scans(client)
     scans_response = client.get("/api/v1/scans?status=failed")
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == "The built-in scanner could not read the repository."
-    assert "private filesystem detail" not in response.text
+    assert response.status_code == 202
     assert scans_response.json()["total"] == 1
 
     failed_scan_id = scans_response.json()["items"][0]["id"]

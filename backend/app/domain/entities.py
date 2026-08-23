@@ -5,8 +5,16 @@ from typing import Literal
 from app.domain.reports import Finding, FindingCategory, ScanReport, Severity
 
 RepositoryTargetType = Literal["local_path", "github_url"]
-ScanStatus = Literal["running", "completed", "failed"]
-EngineRunStatus = Literal["running", "completed", "failed"]
+ScanStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
+EngineRunStatus = Literal["running", "completed", "failed", "cancelled"]
+
+
+@dataclass(frozen=True)
+class ClaimedScan:
+    id: str
+    target: str
+    target_type: RepositoryTargetType
+    worker_id: str
 
 
 @dataclass(frozen=True)
@@ -29,9 +37,11 @@ class ScanSummary:
     severity_counts: dict[str, int]
     scanned_at_utc: datetime | None
     created_at: datetime
-    started_at: datetime
+    started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
+    attempt_count: int = 0
+    cancellation_requested_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +85,6 @@ class EngineRun:
     engine: str
     engine_version: str
     status: EngineRunStatus
-    started_at: datetime
+    started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None

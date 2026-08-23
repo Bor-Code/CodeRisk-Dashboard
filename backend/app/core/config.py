@@ -29,6 +29,14 @@ class Settings(BaseSettings):
             "http://localhost:5173",
         ]
     )
+    scan_timeout_seconds: int = 1800
+    scan_heartbeat_seconds: int = 60
+    scan_result_limit_bytes: int = 10 * 1024 * 1024
+    scan_memory_limit_mb: int = 512
+    scan_terminate_grace_seconds: int = 10
+    scan_poll_interval_seconds: int = 5
+    scan_max_attempts: int = 3
+    scan_lease_seconds: int = 120
 
     @model_validator(mode="after")
     def validate_runtime_configuration(self) -> Self:

@@ -78,15 +78,18 @@ def list_repositories(
 
 @router.post(
     "/repositories/{repository_id}/scans",
-    response_model=ScanDetailResponse,
-    status_code=status.HTTP_201_CREATED,
+    response_model=ScanSummaryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
     responses=ERROR_RESPONSES,
 )
 def create_scan(
     repository_id: str,
+    response: Response,
     service: ScanServiceDependency,
-) -> ScanDetailResponse:
-    return scan_detail_response(service.run_scan(repository_id))
+) -> ScanSummaryResponse:
+    scan = service.enqueue_scan(repository_id)
+    response.headers["Location"] = f"/api/v1/scans/{scan.id}"
+    return scan_summary_response(scan)
 
 
 @router.get(
@@ -115,6 +118,16 @@ def list_scans(
         offset=offset,
         limit=limit,
     )
+
+
+@router.post(
+    "/scans/{scan_id}/cancel",
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ERROR_RESPONSES,
+)
+def cancel_scan(scan_id: str, service: ScanServiceDependency) -> dict[str, str]:
+    service.cancel_scan(scan_id)
+    return {"status": "cancelling"}
 
 
 @router.get(

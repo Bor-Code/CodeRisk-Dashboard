@@ -48,6 +48,7 @@ class ScanModel(Base):
     __table_args__ = (
         Index("ix_scans_repository_created", "repository_id", "created_at"),
         Index("ix_scans_status_created", "status", "created_at"),
+        Index("ix_scans_status_lease", "status", "lease_expires_at"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
@@ -55,7 +56,7 @@ class ScanModel(Base):
         ForeignKey("repositories.id", ondelete="CASCADE"),
         index=True,
     )
-    status: Mapped[str] = mapped_column(String(32), default="running")
+    status: Mapped[str] = mapped_column(String(32), default="queued")
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_files: Mapped[int | None] = mapped_column(Integer, nullable=True)
     high_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -66,7 +67,7 @@ class ScanModel(Base):
     file_tree: Mapped[list[str]] = mapped_column(JSON, default=list)
     scanned_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -74,6 +75,15 @@ class ScanModel(Base):
         onupdate=utc_now,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancellation_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     repository: Mapped[RepositoryModel] = relationship(back_populates="scans")
     findings: Mapped[list["FindingModel"]] = relationship(
@@ -126,8 +136,8 @@ class EngineRunModel(Base):
     )
     engine: Mapped[str] = mapped_column(String(64))
     engine_version: Mapped[str] = mapped_column(String(64))
-    status: Mapped[str] = mapped_column(String(32), default="running")
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    status: Mapped[str] = mapped_column(String(32), default="queued")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

@@ -104,6 +104,52 @@ SECRET_RULES = [
         mask_evidence=True,
     ),
     PatternRule(
+        id="aws-access-key",
+        title="Possible AWS access key exposure",
+        severity="high",
+        pattern=re.compile(r"(?<![A-Z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])"),
+        remediation="Rotate the AWS access key and remove it from source control.",
+        mask_evidence=True,
+    ),
+    PatternRule(
+        id="aws-secret-key",
+        title="Possible AWS secret access key exposure",
+        severity="high",
+        pattern=re.compile(
+            r"(?i)(?:aws[_-]?secret[_-]?access[_-]?key|aws_secret_access_key)\s*[:=]\s*['\"]?([A-Za-z0-9/+=]{40})",
+        ),
+        remediation=(
+            "Replace the AWS secret with a managed secret source such as IAM roles or a vault."
+        ),
+        mask_evidence=True,
+    ),
+    PatternRule(
+        id="gitlab-token",
+        title="Possible GitLab personal access token exposure",
+        severity="high",
+        pattern=re.compile(r"(?i)\bglpat-[A-Za-z0-9_\-]{20,}\b"),
+        remediation="Revoke the GitLab token and rotate it from a secure secret store.",
+        mask_evidence=True,
+    ),
+    PatternRule(
+        id="google-api-key",
+        title="Possible Google API key exposure",
+        severity="high",
+        pattern=re.compile(r"(?i)\bAIza[0-9A-Za-z\-_]{35,}\b"),
+        remediation="Restrict the key to expected APIs and move it to a secret manager.",
+        mask_evidence=True,
+    ),
+    PatternRule(
+        id="aws-role-arn",
+        title="Possible AWS role ARN exposure",
+        severity="medium",
+        pattern=re.compile(r"(?i)\barn:aws:iam::\d{12}:role/[A-Za-z0-9+=,._:/@-]+\b"),
+        remediation=(
+            "Ensure AWS role ARNs are not committed and restrict access to the intended role."
+        ),
+        mask_evidence=True,
+    ),
+    PatternRule(
         id="jwt-secret",
         title="Possible JWT secret exposure",
         severity="high",

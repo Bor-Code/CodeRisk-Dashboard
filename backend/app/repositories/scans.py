@@ -1,12 +1,13 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.base import utc_now
 from app.db.models import EngineRunModel, FindingModel, RepositoryModel, ScanModel
 from app.domain.entities import (
+    ClaimedScan,
     EngineRun,
     EngineRunStatus,
     PersistedFinding,
@@ -17,9 +18,11 @@ from app.domain.entities import (
     ScanSummary,
 )
 from app.domain.reports import FindingCategory, RepoMetadata, ScanReport, Severity
+from app.jobs.errors import LostScanLeaseError
 
 BUILTIN_ENGINE_NAME = "builtin"
 BUILTIN_ENGINE_VERSION = "0.1.0"
+WORKER_RETRY_EXHAUSTED_MESSAGE = "Scan failed after multiple attempts."
 
 
 class ScanStore:
@@ -67,20 +70,24 @@ class ScanStore:
         return [_repository_from_model(model) for model in models], total
 
     def begin_scan(self, repository_id: str) -> ScanSummary:
-        scan = ScanModel(repository_id=repository_id, status="running")
+        scan = ScanModel(repository_id=repository_id, status="queued")
         scan.engine_runs.append(
             EngineRunModel(
                 engine=BUILTIN_ENGINE_NAME,
                 engine_version=BUILTIN_ENGINE_VERSION,
-                status="running",
+                status="queued",
             )
         )
         self.session.add(scan)
         self.session.flush()
         return _scan_summary_from_model(scan)
 
-    def complete_scan(self, scan_id: str, report: ScanReport) -> PersistedScan:
+    def complete_scan(
+        self, scan_id: str, report: ScanReport, worker_id: str | None = None
+    ) -> PersistedScan:
         model = self._get_scan_model(scan_id)
+        if worker_id is not None and model.worker_id != worker_id:
+            raise LostScanLeaseError()
         completed_at = utc_now()
         model.status = "completed"
         model.score = report.score
@@ -118,8 +125,12 @@ class ScanStore:
         self.session.flush()
         return _persisted_scan_from_model(model)
 
-    def fail_scan(self, scan_id: str, error_message: str) -> ScanSummary:
+    def fail_scan(
+        self, scan_id: str, error_message: str, worker_id: str | None = None
+    ) -> ScanSummary:
         model = self._get_scan_model(scan_id)
+        if worker_id is not None and model.worker_id != worker_id:
+            raise LostScanLeaseError()
         completed_at = utc_now()
         model.status = "failed"
         model.completed_at = completed_at
@@ -205,6 +216,109 @@ class ScanStore:
         total = self.session.scalar(count_statement) or 0
         return [_finding_from_model(model) for model in models], total
 
+    def claim_next_scan(
+        self, worker_id: str, lease_seconds: int, max_attempts: int
+    ) -> ClaimedScan | None:
+        now = utc_now()
+
+        statement = (
+            select(ScanModel)
+            .where(
+                ScanModel.status == "queued",
+                (ScanModel.lease_expires_at.is_(None)) | (ScanModel.lease_expires_at < now),
+                ScanModel.attempt_count < max_attempts,
+            )
+            .order_by(ScanModel.created_at.asc())
+            .with_for_update(skip_locked=True)
+            .limit(1)
+        )
+        model = self.session.scalar(statement)
+        if not model:
+            return None
+
+        model.worker_id = worker_id
+        model.lease_expires_at = now + timedelta(seconds=lease_seconds)
+        model.attempt_count += 1
+        model.status = "running"
+        model.started_at = now
+
+        for er in model.engine_runs:
+            if er.status == "queued":
+                er.status = "running"
+                er.started_at = now
+
+        self.session.flush()
+        return ClaimedScan(
+            id=model.id,
+            worker_id=worker_id,
+            target=model.repository.target,
+            target_type=model.repository.target_type,
+        )
+
+    def renew_lease(self, scan_id: str, worker_id: str, lease_seconds: int) -> bool:
+        model = self.session.get(ScanModel, scan_id)
+        if not model or model.worker_id != worker_id or model.status != "running":
+            return False
+        model.lease_expires_at = utc_now() + timedelta(seconds=lease_seconds)
+        self.session.flush()
+        return True
+
+    def request_cancellation(self, scan_id: str) -> None:
+        stmt = (
+            update(ScanModel)
+            .where(ScanModel.id == scan_id)
+            .where(ScanModel.status.in_(["queued", "running"]))
+            .values(cancellation_requested_at=utc_now())
+        )
+        self.session.execute(stmt)
+
+    def cancellation_requested(self, scan_id: str, worker_id: str) -> bool:
+        model = self.session.get(ScanModel, scan_id)
+        if not model or model.worker_id != worker_id:
+            return False
+        return model.cancellation_requested_at is not None
+
+    def cancel_claimed_scan(self, scan_id: str, worker_id: str) -> None:
+        model = self.session.get(ScanModel, scan_id)
+        if not model or model.worker_id != worker_id:
+            raise LostScanLeaseError()
+        now = utc_now()
+        model.status = "cancelled"
+        model.completed_at = now
+        for engine_run in model.engine_runs:
+            if engine_run.status == "running":
+                engine_run.status = "cancelled"
+                engine_run.completed_at = now
+        self.session.flush()
+
+    def recover_expired_scans(self, max_attempts: int) -> None:
+        now = utc_now()
+        statement = select(ScanModel).where(
+            ScanModel.status == "running",
+            ScanModel.lease_expires_at < now,
+        )
+        models = self.session.scalars(statement).all()
+        for model in models:
+            if model.attempt_count >= max_attempts:
+                model.status = "failed"
+                model.error_message = WORKER_RETRY_EXHAUSTED_MESSAGE
+                model.completed_at = now
+                for er in model.engine_runs:
+                    if er.status == "running":
+                        er.status = "failed"
+                        er.error_message = WORKER_RETRY_EXHAUSTED_MESSAGE
+                        er.completed_at = now
+            else:
+                model.status = "queued"
+                model.worker_id = None
+                model.lease_expires_at = None
+                model.started_at = None
+                for er in model.engine_runs:
+                    if er.status == "running":
+                        er.status = "queued"
+                        er.started_at = None
+        self.session.flush()
+
     def _get_scan_model(self, scan_id: str) -> ScanModel:
         statement = _scan_detail_statement().where(ScanModel.id == scan_id)
         model = self.session.scalar(statement)
@@ -249,9 +363,13 @@ def _scan_summary_from_model(model: ScanModel) -> ScanSummary:
         },
         scanned_at_utc=_as_utc(model.scanned_at_utc) if model.scanned_at_utc else None,
         created_at=_as_utc(model.created_at),
-        started_at=_as_utc(model.started_at),
+        started_at=_as_utc(model.started_at) if model.started_at else None,
         completed_at=_as_utc(model.completed_at) if model.completed_at else None,
+        cancellation_requested_at=_as_utc(model.cancellation_requested_at)
+        if model.cancellation_requested_at
+        else None,
         error_message=model.error_message,
+        attempt_count=model.attempt_count,
     )
 
 
@@ -278,7 +396,7 @@ def _engine_run_from_model(model: EngineRunModel) -> EngineRun:
         engine=model.engine,
         engine_version=model.engine_version,
         status=cast(EngineRunStatus, model.status),
-        started_at=_as_utc(model.started_at),
+        started_at=_as_utc(model.started_at) if model.started_at else None,
         completed_at=_as_utc(model.completed_at) if model.completed_at else None,
         error_message=model.error_message,
     )

@@ -51,6 +51,12 @@ class ScanService:
 
         return repository
 
+    def enqueue_scan(self, repository_id: str) -> ScanSummary:
+        repository = self.get_repository(repository_id)
+        scan = self.store.begin_scan(repository.id)
+        self.session.commit()
+        return scan
+
     def run_scan(self, repository_id: str) -> PersistedScan:
         repository = self.get_repository(repository_id)
         scan = self.store.begin_scan(repository.id)
@@ -79,6 +85,10 @@ class ScanService:
     ) -> PersistedScan:
         repository, _ = self.create_repository(target=target, target_type=target_type)
         return self.run_scan(repository.id)
+
+    def cancel_scan(self, scan_id: str) -> None:
+        self.store.request_cancellation(scan_id)
+        self.session.commit()
 
     def get_scan(self, scan_id: str) -> PersistedScan:
         scan = self.store.get_scan(scan_id)

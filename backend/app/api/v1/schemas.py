@@ -64,9 +64,11 @@ class ScanSummaryResponse(BaseModel):
     severity_counts: SeverityCountsResponse
     scanned_at_utc: datetime | None
     created_at: datetime
-    started_at: datetime
+    started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
+    attempt_count: int
+    cancellation_requested_at: datetime | None = None
 
 
 class EngineRunResponse(BaseModel):
@@ -75,7 +77,7 @@ class EngineRunResponse(BaseModel):
     engine: str
     engine_version: str
     status: EngineRunStatus
-    started_at: datetime
+    started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
 
@@ -152,6 +154,8 @@ def scan_summary_response(scan: ScanSummary) -> ScanSummaryResponse:
         started_at=scan.started_at,
         completed_at=scan.completed_at,
         error_message=scan.error_message,
+        attempt_count=scan.attempt_count,
+        cancellation_requested_at=scan.cancellation_requested_at,
     )
 
 

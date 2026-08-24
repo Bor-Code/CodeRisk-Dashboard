@@ -47,6 +47,7 @@ interface Finding {
   engine_id: string
   rule_id: string | null
   created_at: string
+  is_ignored: boolean
 }
 
 interface Page<T> {
@@ -514,11 +515,12 @@ export default function App() {
                           <th>Title</th>
                           <th>Location</th>
                           <th>Remediation</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredFindings.map((f) => (
-                          <tr key={f.id}>
+                          <tr key={f.id} style={{ opacity: f.is_ignored ? 0.5 : 1 }}>
                             <td>
                               <SeverityBadge severity={f.severity} />
                             </td>
@@ -541,6 +543,32 @@ export default function App() {
                             </td>
                             <td className="remediation-cell">
                               {f.remediation}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ padding: "0.25rem 0.5rem", fontSize: "0.8rem", opacity: f.is_ignored ? 0.5 : 1 }}
+                                onClick={async () => {
+                                  if (!activeScan) return;
+                                  try {
+                                    if (f.is_ignored) {
+                                      await apiFetch(`/repositories/${activeScan.repository_id}/ignored-findings/${f.source_finding_id}`, { method: "DELETE" });
+                                      setFindings(findings.map(item => item.id === f.id ? { ...item, is_ignored: false } : item));
+                                    } else {
+                                      await apiFetch(`/repositories/${activeScan.repository_id}/ignored-findings`, {
+                                        method: "POST",
+                                        body: JSON.stringify({ source_finding_id: f.source_finding_id, reason: "False positive" }),
+                                      });
+                                      setFindings(findings.map(item => item.id === f.id ? { ...item, is_ignored: true } : item));
+                                    }
+                                  } catch (e) {
+                                    alert(e instanceof Error ? e.message : "Failed to ignore finding");
+                                  }
+                                }}
+                              >
+                                {f.is_ignored ? "Restore" : "Ignore"}
+                              </button>
                             </td>
                           </tr>
                         ))}

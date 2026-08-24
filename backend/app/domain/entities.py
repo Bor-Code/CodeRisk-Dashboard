@@ -64,6 +64,7 @@ class PersistedFinding:
     evidence: str
     remediation: str
     created_at: datetime
+    is_ignored: bool = False
 
     def to_report_finding(self) -> Finding:
         return Finding(

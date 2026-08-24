@@ -39,6 +39,11 @@ class RepositoryCreateRequest(BaseModel):
     target_type: RepositoryTargetType = "local_path"
 
 
+class IgnoreFindingRequest(BaseModel):
+    source_finding_id: str
+    reason: str | None = None
+
+
 class RepositoryResponse(BaseModel):
     id: str
     name: str
@@ -103,6 +108,7 @@ class FindingResponse(BaseModel):
     engine_id: str = "built-in"
     rule_id: str | None = None
     created_at: datetime
+    is_ignored: bool
 
 
 class ReportMetadataResponse(BaseModel):
@@ -201,6 +207,7 @@ def finding_response(finding: PersistedFinding) -> FindingResponse:
         engine_id=getattr(finding, "engine_id", "built-in"),
         rule_id=getattr(finding, "rule_id", None),
         created_at=finding.created_at,
+        is_ignored=finding.is_ignored,
     )
 
 

@@ -113,6 +113,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_ignored": {
+            "title": "Is Ignored",
+            "type": "boolean"
+          },
           "line": {
             "anyOf": [
               {
@@ -173,7 +177,8 @@
           "line",
           "evidence",
           "remediation",
-          "created_at"
+          "created_at",
+          "is_ignored"
         ],
         "title": "FindingResponse",
         "type": "object"
@@ -189,6 +194,30 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IgnoreFindingRequest": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source_finding_id": {
+            "title": "Source Finding Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_finding_id"
+        ],
+        "title": "IgnoreFindingRequest",
         "type": "object"
       },
       "Page_FindingResponse_": {
@@ -1357,6 +1386,450 @@
           }
         ],
         "summary": "Create Repository"
+      }
+    },
+    "/api/v1/repositories/{repository_id}/ignored-findings": {
+      "post": {
+        "operationId": "ignore_finding_api_v1_repositories__repository_id__ignored_findings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "repository_id",
+            "required": true,
+            "schema": {
+              "title": "Repository Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IgnoreFindingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Ignore Finding Api V1 Repositories  Repository Id  Ignored Findings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invalid scan target"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Scan execution failed"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Ignore Finding"
+      }
+    },
+    "/api/v1/repositories/{repository_id}/ignored-findings/{source_finding_id}": {
+      "delete": {
+        "operationId": "unignore_finding_api_v1_repositories__repository_id__ignored_findings__source_finding_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "repository_id",
+            "required": true,
+            "schema": {
+              "title": "Repository Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_finding_id",
+            "required": true,
+            "schema": {
+              "title": "Source Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invalid scan target"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "title": "Code",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "title": "Instance",
+                      "type": "string"
+                    },
+                    "status": {
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "code"
+                  ],
+                  "title": "ProblemDetail",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Scan execution failed"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Unignore Finding"
       }
     },
     "/api/v1/repositories/{repository_id}/scans": {

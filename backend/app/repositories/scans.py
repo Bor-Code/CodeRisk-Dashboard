@@ -5,7 +5,13 @@ from sqlalchemy import Select, func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.base import utc_now
-from app.db.models import EngineRunModel, FindingModel, RepositoryModel, ScanModel
+from app.db.models import (
+    EngineRunModel,
+    FindingModel,
+    IgnoredFindingModel,
+    RepositoryModel,
+    ScanModel,
+)
 from app.domain.entities import (
     ClaimedScan,
     EngineRun,
@@ -89,33 +95,58 @@ class ScanStore:
         if worker_id is not None and model.worker_id != worker_id:
             raise LostScanLeaseError()
         completed_at = utc_now()
+        ignored_stmt = select(IgnoredFindingModel.source_finding_id).where(
+            IgnoredFindingModel.repository_id == model.repository_id
+        )
+        ignored_ids = set(self.session.scalars(ignored_stmt).all())
+
+        active_high = active_medium = active_low = active_info = 0
+        finding_models = []
+
+        for position, finding in enumerate(report.findings):
+            is_ignored = finding.id in ignored_ids
+            if not is_ignored:
+                if finding.severity == "high":
+                    active_high += 1
+                elif finding.severity == "medium":
+                    active_medium += 1
+                elif finding.severity == "low":
+                    active_low += 1
+                elif finding.severity == "info":
+                    active_info += 1
+
+            finding_models.append(
+                FindingModel(
+                    source_finding_id=finding.id,
+                    position=position,
+                    category=finding.category,
+                    severity=finding.severity,
+                    title=finding.title,
+                    file_path=finding.file_path,
+                    line=finding.line,
+                    evidence=finding.evidence,
+                    remediation=finding.remediation,
+                    is_ignored=is_ignored,
+                )
+            )
+
+        model.findings = finding_models
+
         model.status = "completed"
-        model.score = report.score
+        model.high_count = active_high
+        model.medium_count = active_medium
+        model.low_count = active_low
+        model.info_count = active_info
+        penalty = active_high * 20 + active_medium * 10 + active_low * 4
+        model.score = max(0, 100 - penalty)
+
         model.total_files = report.metadata.total_files
-        model.high_count = report.severity_counts["high"]
-        model.medium_count = report.severity_counts["medium"]
-        model.low_count = report.severity_counts["low"]
-        model.info_count = report.severity_counts["info"]
         model.dependency_files = report.metadata.dependency_files
         model.file_tree = report.file_tree
         model.scanned_at_utc = _parse_datetime(report.metadata.scanned_at_utc)
         model.completed_at = completed_at
         model.updated_at = completed_at
         model.error_message = None
-        model.findings = [
-            FindingModel(
-                source_finding_id=finding.id,
-                position=position,
-                category=finding.category,
-                severity=finding.severity,
-                title=finding.title,
-                file_path=finding.file_path,
-                line=finding.line,
-                evidence=finding.evidence,
-                remediation=finding.remediation,
-            )
-            for position, finding in enumerate(report.findings)
-        ]
 
         engine_run = _builtin_engine_run(model)
         engine_run.status = "completed"
@@ -319,6 +350,35 @@ class ScanStore:
                         er.started_at = None
         self.session.flush()
 
+    def ignore_finding(
+        self, repository_id: str, source_finding_id: str, reason: str | None = None
+    ) -> None:
+        stmt = select(IgnoredFindingModel).where(
+            IgnoredFindingModel.repository_id == repository_id,
+            IgnoredFindingModel.source_finding_id == source_finding_id,
+        )
+        model = self.session.scalar(stmt)
+        if model is None:
+            model = IgnoredFindingModel(
+                repository_id=repository_id,
+                source_finding_id=source_finding_id,
+                reason=reason,
+            )
+            self.session.add(model)
+        else:
+            model.reason = reason
+        self.session.flush()
+
+    def unignore_finding(self, repository_id: str, source_finding_id: str) -> None:
+        stmt = select(IgnoredFindingModel).where(
+            IgnoredFindingModel.repository_id == repository_id,
+            IgnoredFindingModel.source_finding_id == source_finding_id,
+        )
+        model = self.session.scalar(stmt)
+        if model is not None:
+            self.session.delete(model)
+            self.session.flush()
+
     def _get_scan_model(self, scan_id: str) -> ScanModel:
         statement = _scan_detail_statement().where(ScanModel.id == scan_id)
         model = self.session.scalar(statement)
@@ -386,6 +446,7 @@ def _finding_from_model(model: FindingModel) -> PersistedFinding:
         evidence=model.evidence,
         remediation=model.remediation,
         created_at=_as_utc(model.created_at),
+        is_ignored=model.is_ignored,
     )
 
 

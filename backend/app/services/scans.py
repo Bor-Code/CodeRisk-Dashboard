@@ -77,6 +77,18 @@ class ScanService:
         self.session.commit()
         return persisted_scan
 
+    def ignore_finding(
+        self, repository_id: str, source_finding_id: str, reason: str | None = None
+    ) -> None:
+        self.get_repository(repository_id)
+        self.store.ignore_finding(repository_id, source_finding_id, reason)
+        self.session.commit()
+
+    def unignore_finding(self, repository_id: str, source_finding_id: str) -> None:
+        self.get_repository(repository_id)
+        self.store.unignore_finding(repository_id, source_finding_id)
+        self.session.commit()
+
     def scan_target(
         self,
         *,

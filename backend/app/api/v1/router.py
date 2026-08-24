@@ -6,6 +6,7 @@ from fastapi.responses import PlainTextResponse
 from app.api.dependencies import ScanServiceDependency
 from app.api.v1.schemas import (
     FindingResponse,
+    IgnoreFindingRequest,
     Page,
     ProblemDetail,
     RepositoryCreateRequest,
@@ -166,6 +167,33 @@ def list_findings(
         offset=offset,
         limit=limit,
     )
+
+
+@router.post(
+    "/repositories/{repository_id}/ignored-findings",
+    status_code=status.HTTP_201_CREATED,
+    responses=ERROR_RESPONSES,
+)
+def ignore_finding(
+    repository_id: str,
+    request: IgnoreFindingRequest,
+    service: ScanServiceDependency,
+) -> dict[str, str]:
+    service.ignore_finding(repository_id, request.source_finding_id, request.reason)
+    return {"status": "ignored"}
+
+
+@router.delete(
+    "/repositories/{repository_id}/ignored-findings/{source_finding_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=ERROR_RESPONSES,
+)
+def unignore_finding(
+    repository_id: str,
+    source_finding_id: str,
+    service: ScanServiceDependency,
+) -> None:
+    service.unignore_finding(repository_id, source_finding_id)
 
 
 @router.get(

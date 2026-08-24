@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -41,6 +42,28 @@ class RepositoryModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    ignored_findings: Mapped[list["IgnoredFindingModel"]] = relationship(
+        back_populates="repository",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class IgnoredFindingModel(Base):
+    __tablename__ = "ignored_findings"
+    __table_args__ = (
+        UniqueConstraint("repository_id", "source_finding_id", name="uq_ignored_findings_repo_src"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
+    repository_id: Mapped[str] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    source_finding_id: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    repository: Mapped[RepositoryModel] = relationship(back_populates="ignored_findings")
 
 
 class ScanModel(Base):
@@ -120,6 +143,7 @@ class FindingModel(Base):
     line: Mapped[int | None] = mapped_column(Integer, nullable=True)
     evidence: Mapped[str] = mapped_column(Text)
     remediation: Mapped[str] = mapped_column(Text)
+    is_ignored: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     scan: Mapped[ScanModel] = relationship(back_populates="findings")

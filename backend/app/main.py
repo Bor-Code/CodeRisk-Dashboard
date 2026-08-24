@@ -1,3 +1,5 @@
+import logging
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -13,6 +15,17 @@ from app.db.session import create_database, prepare_database
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     runtime_settings = settings or get_settings()
+
+    # Configure logging
+    log_level = logging.INFO if runtime_settings.environment == "production" else logging.DEBUG
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    logger = logging.getLogger("coderisk")
+    logger.info("Starting CodeRisk backend...", extra={"environment": runtime_settings.environment})
+
     database = create_database(runtime_settings)
 
     @asynccontextmanager

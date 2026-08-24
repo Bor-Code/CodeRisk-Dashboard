@@ -67,8 +67,14 @@ interface EngineAvailability {
 const API = "http://127.0.0.1:8000/api/v1"
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const apiKey = window.localStorage?.getItem("coderisk_api_key")
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey
+  }
+
   const res = await fetch(`${API}${path}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...headers, ...init?.headers },
     ...init,
   })
   if (!res.ok) {
@@ -165,6 +171,19 @@ type Tab = "scan" | "history" | "settings"
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("scan")
+  
+  // Settings
+  const [apiKey, setApiKey] = useState(() => window.localStorage?.getItem("coderisk_api_key") || "")
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setApiKey(val)
+    if (val) {
+      window.localStorage?.setItem("coderisk_api_key", val)
+    } else {
+      window.localStorage?.removeItem("coderisk_api_key")
+    }
+  }
 
   // scan form
   const [target, setTarget] = useState("")
@@ -670,9 +689,27 @@ export default function App() {
               </div>
 
               <div className="settings-card glass-panel">
-                <h2>API</h2>
+                <h2>API Authentication</h2>
                 <p className="settings-desc">
-                  The backend API is available at{" "}
+                  If your backend requires an API key, enter it here. It will be stored locally in your browser.
+                </p>
+                <div className="form-group" style={{ marginTop: "1rem" }}>
+                  <label htmlFor="api-key">API Key</label>
+                  <input
+                    id="api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={handleApiKeyChange}
+                    placeholder="Enter X-API-Key"
+                    style={{ width: "100%", maxWidth: "400px" }}
+                  />
+                </div>
+              </div>
+
+              <div className="settings-card glass-panel">
+                <h2>API Reference</h2>
+                <p className="settings-desc">
+                  The backend API documentation is available at{" "}
                   <a
                     href="http://127.0.0.1:8000/docs"
                     target="_blank"
@@ -682,10 +719,6 @@ export default function App() {
                     http://127.0.0.1:8000/docs
                   </a>
                   .
-                </p>
-                <p className="settings-desc">
-                  Set <code>CODERISK_API_KEY</code> in the backend{" "}
-                  <code>.env</code> file to enable API key authentication.
                 </p>
               </div>
             </div>

@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: coderisk
+      POSTGRES_PASSWORD: coderiskpassword
+      POSTGRES_DB: coderisk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coderisk"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - CODERISK_ENVIRONMENT=production
+      - CODERISK_DATABASE_URL=postgresql+psycopg://coderisk:coderiskpassword@db:5432/coderisk
+      - CODERISK_API_KEY=${CODERISK_API_KEY:-}
+      - CODERISK_CORS_ORIGINS=["http://localhost:5173","http://localhost:8080","http://127.0.0.1:8080"]
+    volumes:
+      # Map temporary workspace for clones (optional)
+      - coderisk_workspace:/tmp/coderisk
+    depends_on:
+      db:
+        condition: service_healthy
+    # Wait for DB, run migrations, then start server
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  coderisk_workspace:

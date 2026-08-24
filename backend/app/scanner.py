@@ -321,6 +321,38 @@ def scan_repository(repo_path: str) -> ScanReport:
     for path in files:
         findings.extend(_scan_file(root, path))
 
+    # Run available external engine adapters and merge their findings
+    try:
+        from app.engines.registry import run_all_engines  # noqa: PLC0415
+
+        for raw in run_all_engines(repo_path):
+            category: FindingCategory = (
+                raw.category
+                if raw.category in ("dependency", "metadata", "secret", "config", "sast")
+                else "sast"
+            )
+            severity: Severity = (
+                raw.severity if raw.severity in ("high", "medium", "low", "info") else "medium"
+            )
+            findings.append(
+                Finding(
+                    id=f"{raw.engine_id}-{raw.rule_id}-{raw.file_path}-{raw.line or 0}",
+                    category=category,
+                    severity=severity,
+                    title=raw.title,
+                    file_path=raw.file_path,
+                    line=raw.line,
+                    evidence=raw.evidence,
+                    remediation=raw.remediation,
+                    engine_id=raw.engine_id,
+                    rule_id=raw.rule_id,
+                )
+            )
+    except Exception:  # noqa: BLE001
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception("External engine run failed")
+
     findings = _sort_findings(findings)
     severity_counts = _count_severities(findings)
     metadata = RepoMetadata(

@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     scan_max_attempts: int = 3
     scan_lease_seconds: int = 120
 
+    # Authentication — leave unset to disable (development/single-user mode)
+    api_key: SecretStr | None = None
+
+    # GitHub ingestion — base directory for temporary clones
+    github_clone_workspace: str | None = None
+
     @model_validator(mode="after")
     def validate_runtime_configuration(self) -> Self:
         database_url = self.database_url.get_secret_value()

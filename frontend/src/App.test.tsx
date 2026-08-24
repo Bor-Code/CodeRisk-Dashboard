@@ -1,58 +1,32 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 const fetchMock = vi.fn()
 
-const scanReport = {
-  metadata: {
-    name: 'sample-repo',
-    root_path: '/repos/sample-repo',
-    scanned_at_utc: '2026-08-22T00:00:00+00:00',
-    total_files: 12,
-    dependency_files: ['package.json'],
-  },
-  findings: [
-    {
-      id: 'high-finding',
-      category: 'sast',
-      severity: 'high',
-      title: 'Possible hardcoded password',
-      file_path: 'src/app.py',
-      line: 4,
-      evidence: 'password=***',
-      remediation: 'Move passwords to a secret manager.',
-    },
-    {
-      id: 'low-finding',
-      category: 'sast',
-      severity: 'low',
-      title: 'Insecure HTTP URL',
-      file_path: 'src/client.ts',
-      line: null,
-      evidence: "const api = '[sanitized URL]'",
-      remediation: 'Prefer HTTPS endpoints.',
-    },
-    {
-      id: 'info-finding',
-      category: 'dependency',
-      severity: 'info',
-      title: 'Dependency manifest files detected',
-      file_path: 'package.json',
-      line: null,
-      evidence: '1 dependency file found.',
-      remediation: 'Run a dependency vulnerability scanner.',
-    },
-  ],
-  severity_counts: {
-    high: 1,
-    medium: 0,
-    low: 1,
-    info: 1,
-  },
+const mockRepo = { id: 'repo-123' }
+const mockScan = {
+  id: 'scan-123',
+  status: 'completed',
   score: 90,
-  file_tree: ['package.json', 'src/app.py', 'src/client.ts'],
+  severity_counts: { high: 1, medium: 0, low: 0, info: 0 },
+  total_files: 10,
+  created_at: '2026-08-22T00:00:00Z',
+}
+const mockFindingsPage = {
+  items: [
+    {
+      id: 'f-1',
+      severity: 'high',
+      title: 'Test finding',
+      engine_id: 'built-in',
+      rule_id: 'test-rule',
+      file_path: 'src/app.py',
+      evidence: 'test',
+      remediation: 'fix',
+    }
+  ]
 }
 
 function jsonResponse(payload: unknown, ok = true): Response {
@@ -62,16 +36,10 @@ function jsonResponse(payload: unknown, ok = true): Response {
   } as unknown as Response
 }
 
-async function submitScan() {
-  const user = userEvent.setup()
-  await user.type(screen.getByLabelText('Repository Path'), '/repos/sample-repo')
-  await user.click(screen.getByRole('button', { name: 'Scan' }))
-  return user
-}
-
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockResolvedValue(jsonResponse({}))
   })
 
   afterEach(() => {
@@ -79,85 +47,121 @@ describe('App', () => {
     vi.unstubAllGlobals()
   })
 
-  it('starts with an accessible empty scan form', async () => {
+  it('renders empty state and allows scan submission', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    const scanButton = screen.getByRole('button', { name: 'Scan' })
-    expect(screen.getByRole('heading', { name: 'Waiting for scan' })).toBeInTheDocument()
-    expect(scanButton).toBeDisabled()
+    expect(screen.getByText('Ready to scan')).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText('Repository Path'), '/repos/sample-repo')
+    const input = screen.getByLabelText('Target')
+    await user.type(input, '/tmp/repo')
 
-    expect(scanButton).toBeEnabled()
+    // Mock API sequence:
+    // 1. /engines (on mount)
+    // 2. /repositories (POST)
+    // 3. /repositories/repo-123/scans (POST)
+    // 4. /scans/scan-123 (GET polling)
+    // 5. /scans/scan-123/findings (GET)
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('/engines')) return jsonResponse({ gitleaks: true })
+      if (url.includes('/repositories/repo-123/scans')) return jsonResponse(mockScan)
+      if (url.includes('/repositories')) return jsonResponse(mockRepo)
+      if (url.includes('/scans/scan-123/findings')) return jsonResponse(mockFindingsPage)
+      if (url.includes('/scans/scan-123')) return jsonResponse(mockScan)
+      return jsonResponse({})
+    })
+
+    const scanBtn = screen.getByRole('button', { name: '▶ Scan' })
+    await user.click(scanBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test finding')).toBeInTheDocument()
+    })
   })
 
-  it('submits a scan, renders results, filters findings, and links exports', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(scanReport))
+  it('allows switching to history tab', async () => {
+    const user = userEvent.setup()
     render(<App />)
+    
+    const historyBtn = screen.getByRole('button', { name: /history/i })
+    
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('/scans?limit=50')) return jsonResponse({ items: [mockScan] })
+      return jsonResponse({})
+    })
 
-    const user = await submitScan()
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:8000/scan',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          target: '/repos/sample-repo',
-          target_type: 'local_path',
-        }),
-      }),
-    )
-    expect(await screen.findByRole('heading', { name: 'Findings' })).toBeInTheDocument()
-    expect(screen.getByText('Possible hardcoded password')).toBeInTheDocument()
-    expect(screen.getByText('Insecure HTTP URL')).toBeInTheDocument()
-    expect(screen.getByText('src/app.py:4')).toBeInTheDocument()
-    expect(screen.getByText('src/client.ts')).toBeInTheDocument()
-    expect(screen.getByText('90/100')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'JSON' })).toHaveAttribute(
-      'href',
-      'http://127.0.0.1:8000/reports/latest.json',
-    )
-    expect(screen.getByRole('link', { name: 'Markdown' })).toHaveAttribute(
-      'href',
-      'http://127.0.0.1:8000/reports/latest.md',
-    )
-
-    await user.selectOptions(screen.getByLabelText('Severity filter'), 'high')
-
-    expect(screen.getByText('Possible hardcoded password')).toBeInTheDocument()
-    expect(screen.queryByText('Insecure HTTP URL')).not.toBeInTheDocument()
+    await user.click(historyBtn)
+    
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Scan History' })).toBeInTheDocument()
+    })
   })
 
-  it('shows API error details and leaves the empty state available', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ detail: 'Repository is not readable.' }, false))
+  it('allows switching to settings tab and shows engine status', async () => {
+    const user = userEvent.setup()
+    
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('/engines')) return jsonResponse({ gitleaks: true, semgrep: false, 'osv-scanner': false })
+      return jsonResponse({})
+    })
+
     render(<App />)
-
-    await submitScan()
-
-    expect(await screen.findByText('Repository is not readable.')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Waiting for scan' })).toBeInTheDocument()
+    
+    const settingsBtn = screen.getByRole('button', { name: /settings/i })
+    await user.click(settingsBtn)
+    
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+    })
   })
 
-  it('uses a safe fallback for non-error failures', async () => {
-    fetchMock.mockRejectedValue('offline')
+  it('filters findings by severity', async () => {
+    const user = userEvent.setup()
     render(<App />)
 
-    await submitScan()
+    const input = screen.getByLabelText('Target')
+    await user.type(input, '/tmp/repo')
 
-    expect(await screen.findByText('Scan failed')).toBeInTheDocument()
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('/engines')) return jsonResponse({})
+      if (url.includes('/repositories/repo-123/scans')) return jsonResponse(mockScan)
+      if (url.includes('/repositories')) return jsonResponse(mockRepo)
+      if (url.includes('/scans/scan-123/findings')) return jsonResponse(mockFindingsPage)
+      if (url.includes('/scans/scan-123')) return jsonResponse(mockScan)
+      return jsonResponse({})
+    })
+
+    const scanBtn = screen.getByRole('button', { name: '▶ Scan' })
+    await user.click(scanBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test finding')).toBeInTheDocument()
+    })
+
+    // Filter by low severity (should hide the high severity finding)
+    const select = screen.getByLabelText('Filter by severity')
+    await user.selectOptions(select, 'low')
+
+    expect(screen.queryByText('Test finding')).not.toBeInTheDocument()
   })
 
-  it.each([
-    [60, 'warn'],
-    [40, 'bad'],
-  ])('applies the %s score state', async (score, expectedClass) => {
-    fetchMock.mockResolvedValue(jsonResponse({ ...scanReport, score }))
+  it('handles scan submission errors', async () => {
+    const user = userEvent.setup()
     render(<App />)
 
-    await submitScan()
+    const input = screen.getByLabelText('Target')
+    await user.type(input, '/tmp/error-repo')
 
-    expect(await screen.findByText(`${score}/100`)).toBeInTheDocument()
-    expect(screen.getByText('Security Score').closest('article')).toHaveClass(expectedClass)
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('/repositories')) return jsonResponse({ detail: 'Repository not found' }, false)
+      return jsonResponse({})
+    })
+
+    const scanBtn = screen.getByRole('button', { name: '▶ Scan' })
+    await user.click(scanBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('Repository not found')).toBeInTheDocument()
+    })
   })
 })

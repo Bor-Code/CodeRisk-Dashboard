@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import PlainTextResponse
 
 from app.api.dependencies import ScanServiceDependency
@@ -19,11 +19,12 @@ from app.api.v1.schemas import (
     scan_detail_response,
     scan_summary_response,
 )
+from app.auth.api_key import require_api_key
 from app.domain.entities import ScanStatus
 from app.domain.reports import FindingCategory, Severity
 from app.reporting import report_to_markdown
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
 
 PROBLEM_CONTENT = {"application/problem+json": {"schema": ProblemDetail.model_json_schema()}}
 
@@ -186,3 +187,18 @@ def get_json_report(
 )
 def get_markdown_report(scan_id: str, service: ScanServiceDependency) -> str:
     return report_to_markdown(service.get_report(scan_id))
+
+
+@router.get(
+    "/engines",
+    response_model=dict[str, bool],
+    summary="List external engine availability",
+    description=(
+        "Returns a map of engine identifiers to availability status. "
+        "An engine is available when its binary is installed and on PATH."
+    ),
+)
+def list_engines() -> dict[str, bool]:
+    from app.engines.registry import engine_availability  # noqa: PLC0415
+
+    return engine_availability()

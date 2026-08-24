@@ -15,6 +15,8 @@ class Finding:
     line: int | None
     evidence: str
     remediation: str
+    engine_id: str = "built-in"
+    rule_id: str | None = None
 
 
 @dataclass(frozen=True)

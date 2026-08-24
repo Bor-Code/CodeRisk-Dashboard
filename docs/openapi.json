@@ -96,6 +96,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "engine_id": {
+            "default": "built-in",
+            "title": "Engine Id",
+            "type": "string"
+          },
           "evidence": {
             "title": "Evidence",
             "type": "string"
@@ -122,6 +127,17 @@
           "remediation": {
             "title": "Remediation",
             "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
           },
           "scan_id": {
             "title": "Scan Id",
@@ -860,6 +876,13 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "in": "header",
+        "name": "X-API-Key",
+        "type": "apiKey"
+      }
     }
   },
   "info": {
@@ -869,6 +892,34 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/engines": {
+      "get": {
+        "description": "Returns a map of engine identifiers to availability status. An engine is available when its binary is installed and on PATH.",
+        "operationId": "list_engines_api_v1_engines_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response List Engines Api V1 Engines Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List external engine availability"
+      }
+    },
     "/api/v1/repositories": {
       "get": {
         "operationId": "list_repositories_api_v1_repositories_get",
@@ -1089,6 +1140,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "List Repositories"
       },
       "post": {
@@ -1295,6 +1351,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Create Repository"
       }
     },
@@ -1504,6 +1565,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Create Scan"
       }
     },
@@ -1788,6 +1854,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "List Scans"
       }
     },
@@ -1997,6 +2068,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Get Scan"
       }
     },
@@ -2210,6 +2286,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Cancel Scan"
       }
     },
@@ -2487,6 +2568,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "List Findings"
       }
     },
@@ -2696,6 +2782,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Get Json Report"
       }
     },
@@ -2905,6 +2996,11 @@
             "description": "Scan execution failed"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Get Markdown Report"
       }
     },

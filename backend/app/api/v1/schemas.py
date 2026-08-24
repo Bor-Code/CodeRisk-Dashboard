@@ -100,6 +100,8 @@ class FindingResponse(BaseModel):
     line: int | None
     evidence: str
     remediation: str
+    engine_id: str = "built-in"
+    rule_id: str | None = None
     created_at: datetime
 
 
@@ -196,6 +198,8 @@ def finding_response(finding: PersistedFinding) -> FindingResponse:
         line=finding.line,
         evidence=finding.evidence,
         remediation=finding.remediation,
+        engine_id=getattr(finding, "engine_id", "built-in"),
+        rule_id=getattr(finding, "rule_id", None),
         created_at=finding.created_at,
     )
 

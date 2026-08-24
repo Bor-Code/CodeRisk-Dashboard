@@ -155,7 +155,15 @@ def _normalize_target(
     target_type: RepositoryTargetType,
 ) -> tuple[str, str]:
     if target_type == "github_url":
-        raise InvalidTargetError(GITHUB_DISABLED_MESSAGE)
+        from app.services.github import validate_github_url  # noqa: PLC0415
+
+        try:
+            url = validate_github_url(target)
+        except ValueError as error:
+            raise InvalidTargetError(str(error)) from error
+
+        repo_name = url.split("/")[-1].removesuffix(".git")
+        return repo_name, url
 
     try:
         root = Path(target).expanduser().resolve()

@@ -32,7 +32,7 @@ def test_scan_endpoint_rejects_missing_local_path(client: TestClient, tmp_path: 
     assert response.headers["content-type"].startswith("application/problem+json")
 
 
-def test_scan_endpoint_rejects_github_url_for_mvp(client: TestClient) -> None:
+def test_scan_endpoint_rejects_github_url_for_legacy(client: TestClient) -> None:
     response = client.post(
         "/scan",
         json={
@@ -42,6 +42,4 @@ def test_scan_endpoint_rejects_github_url_for_mvp(client: TestClient) -> None:
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "GitHub URL scanning is planned, but remote clone is disabled in the MVP."
-    )
+    assert response.json()["detail"] == "Repo path must point to an existing directory."

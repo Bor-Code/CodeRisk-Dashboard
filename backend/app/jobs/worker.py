@@ -55,9 +55,28 @@ class ScanWorker:
         if claimed_scan is None:
             return False
 
+        clone_dir = None
+        target = claimed_scan.target
+
         try:
+            if claimed_scan.target_type == "github_url":
+                from pathlib import Path  # noqa: PLC0415
+
+                from app.services.github import GitCloneError, clone_repository  # noqa: PLC0415
+
+                workspace = (
+                    Path(self.settings.github_clone_workspace)
+                    if self.settings.github_clone_workspace
+                    else None
+                )
+                try:
+                    clone_dir = clone_repository(target, workspace_root=workspace)
+                    target = str(clone_dir)
+                except GitCloneError as error:
+                    raise InvalidScanTargetError(str(error)) from error
+
             report = self.executor.execute(
-                claimed_scan.target,
+                target,
                 should_cancel=lambda: self._cancellation_requested(claimed_scan),
                 renew_lease=lambda: self._renew_lease(claimed_scan),
             )
@@ -77,6 +96,11 @@ class ScanWorker:
             self._fail_scan(claimed_scan, SCAN_FAILURE_MESSAGE)
         else:
             self._complete_scan(claimed_scan, report)
+        finally:
+            if clone_dir:
+                import shutil  # noqa: PLC0415
+
+                shutil.rmtree(clone_dir, ignore_errors=True)
 
         return True
 

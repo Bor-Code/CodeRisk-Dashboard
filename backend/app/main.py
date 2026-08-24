@@ -30,13 +30,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        import threading
+
+        from app.jobs.worker import ScanWorker
+
+        stop_event = threading.Event()
+        worker = ScanWorker(database, runtime_settings)
+        worker_thread = threading.Thread(target=worker.run_forever, args=(stop_event,), daemon=True)
+
         try:
             prepare_database(
                 database,
                 auto_create=runtime_settings.database_auto_create,
             )
+            worker_thread.start()
             yield
         finally:
+            stop_event.set()
+            if worker_thread.is_alive():
+                worker_thread.join(timeout=runtime_settings.scan_terminate_grace_seconds)
             database.engine.dispose()
 
     application = FastAPI(

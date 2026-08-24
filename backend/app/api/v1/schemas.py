@@ -111,6 +111,12 @@ class FindingResponse(BaseModel):
     is_ignored: bool
 
 
+class ScanDiffResponse(BaseModel):
+    new: list[FindingResponse]
+    resolved: list[FindingResponse]
+    persistent: list[FindingResponse]
+
+
 class ReportMetadataResponse(BaseModel):
     name: str
     root_path: str

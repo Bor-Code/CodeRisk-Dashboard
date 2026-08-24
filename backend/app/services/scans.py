@@ -161,6 +161,44 @@ class ScanService:
 
         return scan.report
 
+    def get_scan_diff(self, scan_id: str) -> dict[str, list[PersistedFinding]]:
+        current_scan = self.get_scan(scan_id)
+        if current_scan.status != "completed":
+            return {"new": [], "resolved": [], "persistent": []}
+
+        previous_scan = self.store.get_previous_completed_scan(
+            current_scan.summary.repository_id, current_scan.id
+        )
+
+        current_findings, _ = self.list_findings(scan_id, offset=0, limit=10000)
+        current_finding_ids = {f.source_finding_id: f for f in current_findings}
+
+        if previous_scan is None:
+            return {
+                "new": current_findings,
+                "resolved": [],
+                "persistent": [],
+            }
+
+        previous_findings, _ = self.list_findings(previous_scan.id, offset=0, limit=10000)
+        previous_finding_ids = {f.source_finding_id: f for f in previous_findings}
+
+        new_findings = [
+            f for f in current_findings if f.source_finding_id not in previous_finding_ids
+        ]
+        persistent_findings = [
+            f for f in current_findings if f.source_finding_id in previous_finding_ids
+        ]
+        resolved_findings = [
+            f for f in previous_findings if f.source_finding_id not in current_finding_ids
+        ]
+
+        return {
+            "new": new_findings,
+            "resolved": resolved_findings,
+            "persistent": persistent_findings,
+        }
+
 
 def _normalize_target(
     target: str,

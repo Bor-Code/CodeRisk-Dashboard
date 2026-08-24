@@ -12,6 +12,7 @@ from app.api.v1.schemas import (
     RepositoryCreateRequest,
     RepositoryResponse,
     ScanDetailResponse,
+    ScanDiffResponse,
     ScanReportResponse,
     ScanSummaryResponse,
     finding_response,
@@ -166,6 +167,20 @@ def list_findings(
         total=total,
         offset=offset,
         limit=limit,
+    )
+
+
+@router.get(
+    "/scans/{scan_id}/diff",
+    response_model=ScanDiffResponse,
+    responses=ERROR_RESPONSES,
+)
+def get_scan_diff(scan_id: str, service: ScanServiceDependency) -> ScanDiffResponse:
+    diff = service.get_scan_diff(scan_id)
+    return ScanDiffResponse(
+        new=[finding_response(item) for item in diff["new"]],
+        resolved=[finding_response(item) for item in diff["resolved"]],
+        persistent=[finding_response(item) for item in diff["persistent"]],
     )
 
 

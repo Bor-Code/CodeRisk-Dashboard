@@ -189,6 +189,22 @@ class ScanStore:
         model = self.session.scalar(statement)
         return _persisted_scan_from_model(model) if model is not None else None
 
+    def get_previous_completed_scan(
+        self, repository_id: str, before_scan_id: str
+    ) -> PersistedScan | None:
+        statement = (
+            _scan_detail_statement()
+            .where(
+                ScanModel.repository_id == repository_id,
+                ScanModel.status == "completed",
+                ScanModel.id < before_scan_id,
+            )
+            .order_by(ScanModel.completed_at.desc(), ScanModel.id.desc())
+            .limit(1)
+        )
+        model = self.session.scalar(statement)
+        return _persisted_scan_from_model(model) if model is not None else None
+
     def list_scans(
         self,
         *,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import type { FormEvent } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import "./App.css"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -55,6 +56,12 @@ interface Page<T> {
   total: number
   offset: number
   limit: number
+}
+
+interface ScanDiff {
+  new: Finding[]
+  resolved: Finding[]
+  persistent: Finding[]
 }
 
 interface EngineAvailability {
@@ -201,6 +208,7 @@ export default function App() {
   const [findings, setFindings] = useState<Finding[]>([])
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all")
   const [findingsLoading, setFindingsLoading] = useState(false)
+  const [scanDiff, setScanDiff] = useState<ScanDiff | null>(null)
 
   // history
   const [scanHistory, setScanHistory] = useState<ScanSummary[]>([])
@@ -228,8 +236,11 @@ export default function App() {
             `/scans/${scan.id}/findings?limit=100`
           )
           setFindings(page.items)
+          const diff = await apiFetch<ScanDiff>(`/scans/${scan.id}/diff`)
+          setScanDiff(diff)
         } catch {
           setFindings([])
+          setScanDiff(null)
         } finally {
           setFindingsLoading(false)
         }
@@ -468,6 +479,20 @@ export default function App() {
                   </span>
                 </div>
 
+                {scanDiff && (
+                  <div className="diff-badges" style={{ marginTop: "1rem", display: "flex", gap: "0.75rem", fontSize: "0.9rem" }}>
+                    <span style={{ padding: "0.25rem 0.75rem", borderRadius: "12px", backgroundColor: "rgba(255,71,87,0.15)", color: "#ff4757", border: "1px solid rgba(255,71,87,0.3)" }}>
+                      +{scanDiff.new?.length ?? 0} New
+                    </span>
+                    <span style={{ padding: "0.25rem 0.75rem", borderRadius: "12px", backgroundColor: "rgba(46,213,115,0.15)", color: "#2ed573", border: "1px solid rgba(46,213,115,0.3)" }}>
+                      -{scanDiff.resolved?.length ?? 0} Resolved
+                    </span>
+                    <span style={{ padding: "0.25rem 0.75rem", borderRadius: "12px", backgroundColor: "rgba(255,255,255,0.1)", color: "#ccc", border: "1px solid rgba(255,255,255,0.2)" }}>
+                      {scanDiff.persistent?.length ?? 0} Persistent
+                    </span>
+                  </div>
+                )}
+
                 {activeScan.error_message && (
                   <p className="error-msg">{activeScan.error_message}</p>
                 )}
@@ -623,7 +648,35 @@ export default function App() {
                 <p>Run your first scan from the Scan tab.</p>
               </div>
             ) : (
-              <div className="history-table-wrap glass-panel">
+              <>
+                <div className="glass-panel" style={{ marginBottom: "2rem", height: "300px", padding: "1rem" }}>
+                  <h2 style={{ marginBottom: "1rem", marginTop: 0 }}>Score Trend</h2>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[...scanHistory].reverse()}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                      <XAxis 
+                        dataKey="created_at" 
+                        tickFormatter={(val: string) => new Date(val).toLocaleDateString()} 
+                        stroke="#888" 
+                      />
+                      <YAxis stroke="#888" domain={[0, 100]} />
+                      <Tooltip 
+                        labelFormatter={(val: string) => new Date(val).toLocaleString()}
+                        contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #4a4e69", borderRadius: "8px" }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#00f2fe" 
+                        strokeWidth={3} 
+                        dot={{ r: 4, fill: "#4facfe" }} 
+                        activeDot={{ r: 6 }} 
+                        animationDuration={1500}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="history-table-wrap glass-panel">
                 <table className="history-table">
                   <thead>
                     <tr>
@@ -663,6 +716,7 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         )}

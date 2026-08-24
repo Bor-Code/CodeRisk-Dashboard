@@ -40,6 +40,14 @@ describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockResolvedValue(jsonResponse({}))
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: vi.fn(() => 'mock-token'),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+      },
+      writable: true
+    })
   })
 
   afterEach(() => {

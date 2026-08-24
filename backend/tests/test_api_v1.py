@@ -101,8 +101,14 @@ def test_scan_history_survives_application_restart(
     tmp_path: Path,
 ) -> None:
     repo = _make_repository(tmp_path)
-    first_application = create_app(test_settings)
+    from app.auth.jwt import require_jwt
+    from app.db.models import UserModel
 
+    def mock_user():
+        return UserModel(id="test-id", username="test-user")
+
+    first_application = create_app(test_settings)
+    first_application.dependency_overrides[require_jwt] = mock_user
     with TestClient(first_application) as first_client:
         repository = _create_repository(first_client, repo)
         scan_response = first_client.post(f"/api/v1/repositories/{repository['id']}/scans")
@@ -110,7 +116,7 @@ def test_scan_history_survives_application_restart(
         _process_scans(first_client)
 
     second_application = create_app(test_settings)
-
+    second_application.dependency_overrides[require_jwt] = mock_user
     with TestClient(second_application) as second_client:
         detail_response = second_client.get(f"/api/v1/scans/{scan_id}")
         legacy_response = second_client.get("/reports/latest.json")

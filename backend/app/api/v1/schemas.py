@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.entities import (
     EngineRun,
@@ -16,6 +16,24 @@ from app.domain.entities import (
 from app.domain.reports import Finding, FindingCategory, RepoMetadata, ScanReport, Severity
 
 T = TypeVar("T")
+
+
+class UserCreateRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6)
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
 
 
 class ProblemDetail(BaseModel):

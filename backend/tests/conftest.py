@@ -6,7 +6,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from app.auth.jwt import require_jwt
 from app.core.config import Settings
+from app.db.models import UserModel
 from app.main import create_app
 
 
@@ -22,7 +24,9 @@ def test_settings(tmp_path: Path) -> Settings:
 
 @pytest.fixture
 def application(test_settings: Settings) -> FastAPI:
-    return create_app(test_settings)
+    app = create_app(test_settings)
+    app.dependency_overrides[require_jwt] = lambda: UserModel(id="test-id", username="test-user")
+    return app
 
 
 @pytest.fixture

@@ -75,10 +75,10 @@ interface EngineAvailability {
 const API = "http://127.0.0.1:8000/api/v1"
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const apiKey = window.localStorage?.getItem("coderisk_api_key")
+  const token = window.localStorage?.getItem("coderisk_token")
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (apiKey) {
-    headers["X-API-Key"] = apiKey
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
   }
 
   const res = await fetch(`${API}${path}`, {
@@ -177,20 +177,117 @@ function EngineStatusBar({ engines }: { engines: EngineAvailability | null }) {
 
 type Tab = "scan" | "history" | "settings"
 
+function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
+  const [isRegister, setIsRegister] = useState(false)
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
+    try {
+      if (isRegister) {
+        await fetch(`${API}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        }).then(async r => {
+          if (!r.ok) {
+            const err = await r.json()
+            throw new Error(err.detail || "Registration failed")
+          }
+        })
+      }
+      
+      const formData = new URLSearchParams()
+      formData.append("username", username)
+      formData.append("password", password)
+      
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || "Login failed")
+      }
+      const data = await res.json()
+      onLogin(data.access_token)
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("An unknown error occurred")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="login-container">
+      <div className="glass-panel login-panel">
+        <div className="login-header">
+          <div className="brand-logo">🛡️</div>
+          <h2>CodeRisk</h2>
+          <p>{isRegister ? "Create an account" : "Sign in to your account"}</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label>Username</label>
+            <input 
+              type="text" 
+              value={username} 
+              onChange={e => setUsername(e.target.value)} 
+              required 
+              minLength={3}
+            />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required
+              minLength={6}
+            />
+          </div>
+          
+          {error && <div className="error-msg">{error}</div>}
+          
+          <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
+            {loading ? "Please wait..." : (isRegister ? "Sign Up" : "Sign In")}
+          </button>
+        </form>
+        
+        <div className="login-footer">
+          <button type="button" className="btn-link" onClick={() => setIsRegister(!isRegister)}>
+            {isRegister ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  const [token, setToken] = useState(() => window.localStorage?.getItem("coderisk_token") || "")
   const [tab, setTab] = useState<Tab>("scan")
   
-  // Settings
-  const [apiKey, setApiKey] = useState(() => window.localStorage?.getItem("coderisk_api_key") || "")
+  const handleLogin = (newToken: string) => {
+    setToken(newToken)
+    window.localStorage?.setItem("coderisk_token", newToken)
+  }
 
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setApiKey(val)
-    if (val) {
-      window.localStorage?.setItem("coderisk_api_key", val)
-    } else {
-      window.localStorage?.removeItem("coderisk_api_key")
-    }
+  const handleLogout = () => {
+    setToken("")
+    window.localStorage?.removeItem("coderisk_token")
   }
 
   // scan form
@@ -332,6 +429,10 @@ export default function App() {
     activeScanId !== null ||
     activeScan?.status === "queued" ||
     activeScan?.status === "running"
+
+  if (!token) {
+    return <LoginScreen onLogin={handleLogin} />
+  }
 
   return (
     <div className="app-root">
@@ -771,20 +872,14 @@ export default function App() {
               </div>
 
               <div className="settings-card glass-panel">
-                <h2>API Authentication</h2>
+                <h2>User Account</h2>
                 <p className="settings-desc">
-                  If your backend requires an API key, enter it here. It will be stored locally in your browser.
+                  You are logged in to the dashboard.
                 </p>
-                <div className="form-group" style={{ marginTop: "1rem" }}>
-                  <label htmlFor="api-key">API Key</label>
-                  <input
-                    id="api-key"
-                    type="password"
-                    value={apiKey}
-                    onChange={handleApiKeyChange}
-                    placeholder="Enter X-API-Key"
-                    style={{ width: "100%", maxWidth: "400px" }}
-                  />
+                <div style={{ marginTop: "1rem" }}>
+                  <button onClick={handleLogout} className="btn btn-secondary">
+                    Logout
+                  </button>
                 </div>
               </div>
 

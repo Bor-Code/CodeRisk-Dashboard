@@ -5,9 +5,12 @@ description = "FastAPI backend for CodeRisk Dashboard"
 requires-python = ">=3.11"
 dependencies = [
     "alembic>=1.16.0",
+    "bcrypt>=4.2.1",
     "fastapi>=0.116.0",
     "psycopg[binary]>=3.2.0",
     "pydantic-settings>=2.10.0",
+    "PyJWT>=2.10.1",
+    "python-multipart>=0.0.18",
     "sqlalchemy>=2.0.0",
     "uvicorn[standard]>=0.35.0",
 ]

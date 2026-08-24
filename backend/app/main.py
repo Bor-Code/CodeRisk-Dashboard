@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_exception_handlers
 from app.api.legacy import router as legacy_router
+from app.api.v1.auth import router as auth_router
 from app.api.v1.router import router as v1_router
 from app.core.config import Settings, get_settings
 from app.db.session import create_database, prepare_database
@@ -66,11 +67,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=runtime_settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
+        allow_methods=["*"],
         allow_headers=["*"],
     )
     register_exception_handlers(application)
     application.include_router(legacy_router)
+    application.include_router(auth_router)
     application.include_router(v1_router)
     return application
 

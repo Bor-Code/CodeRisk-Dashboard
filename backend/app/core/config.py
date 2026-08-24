@@ -40,6 +40,9 @@ class Settings(BaseSettings):
 
     # Authentication — leave unset to disable (development/single-user mode)
     api_key: SecretStr | None = None
+    jwt_secret_key: SecretStr = Field(default_factory=lambda: SecretStr("super-secret-default-key"))
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     # GitHub ingestion — base directory for temporary clones
     github_clone_workspace: str | None = None

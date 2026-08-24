@@ -1,6 +1,65 @@
 {
   "components": {
     "schemas": {
+      "Body_login_api_v1_auth_login_post": {
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          },
+          "grant_type": {
+            "anyOf": [
+              {
+                "pattern": "^password$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "password": {
+            "format": "password",
+            "title": "Password",
+            "type": "string"
+          },
+          "scope": {
+            "default": "",
+            "title": "Scope",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_login_api_v1_auth_login_post",
+        "type": "object"
+      },
       "EngineRunResponse": {
         "properties": {
           "completed_at": {
@@ -897,6 +956,69 @@
         "title": "SeverityCountsResponse",
         "type": "object"
       },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
+      "UserCreateRequest": {
+        "properties": {
+          "password": {
+            "minLength": 6,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 50,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "UserCreateRequest",
+        "type": "object"
+      },
+      "UserResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "created_at"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -939,10 +1061,14 @@
       }
     },
     "securitySchemes": {
-      "APIKeyHeader": {
-        "in": "header",
-        "name": "X-API-Key",
-        "type": "apiKey"
+      "OAuth2PasswordBearer": {
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/auth/login"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -953,6 +1079,114 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_api_v1_auth_login_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "get_current_user_endpoint_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Current User Endpoint",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/engines": {
       "get": {
         "description": "Returns a map of engine identifiers to availability status. An engine is available when its binary is installed and on PATH.",
@@ -975,7 +1209,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "List external engine availability"
@@ -1203,7 +1437,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "List Repositories"
@@ -1414,7 +1648,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Create Repository"
@@ -1642,7 +1876,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Ignore Finding"
@@ -1858,7 +2092,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Unignore Finding"
@@ -2072,7 +2306,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Create Scan"
@@ -2361,7 +2595,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "List Scans"
@@ -2575,7 +2809,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Get Scan"
@@ -2793,7 +3027,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Cancel Scan"
@@ -3007,7 +3241,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Get Scan Diff"
@@ -3289,7 +3523,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "List Findings"
@@ -3503,7 +3737,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Get Json Report"
@@ -3717,7 +3951,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Get Markdown Report"

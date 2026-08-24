@@ -22,6 +22,15 @@ def _new_id() -> str:
     return str(uuid4())
 
 
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
+    username: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class RepositoryModel(Base):
     __tablename__ = "repositories"
     __table_args__ = (UniqueConstraint("target_type", "target", name="uq_repositories_target"),)

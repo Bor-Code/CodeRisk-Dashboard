@@ -21,12 +21,12 @@ from app.api.v1.schemas import (
     scan_detail_response,
     scan_summary_response,
 )
-from app.auth.api_key import require_api_key
+from app.auth.jwt import require_jwt
 from app.domain.entities import ScanStatus
 from app.domain.reports import FindingCategory, Severity
 from app.reporting import report_to_markdown
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_jwt)])
 
 PROBLEM_CONTENT = {"application/problem+json": {"schema": ProblemDetail.model_json_schema()}}
 

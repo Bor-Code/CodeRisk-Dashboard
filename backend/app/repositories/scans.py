@@ -153,6 +153,12 @@ class ScanStore:
         engine_run.completed_at = completed_at
         engine_run.error_message = None
         engine_run.details = {"finding_count": len(report.findings)}
+
+        if getattr(report, "sbom", None) is not None:
+            from app.db.models import SbomModel  # noqa: PLC0415
+
+            model.sbom = SbomModel(payload=report.sbom)
+
         self.session.flush()
         return _persisted_scan_from_model(model)
 
@@ -178,6 +184,12 @@ class ScanStore:
         statement = _scan_detail_statement().where(ScanModel.id == scan_id)
         model = self.session.scalar(statement)
         return _persisted_scan_from_model(model) if model is not None else None
+
+    def get_sbom(self, scan_id: str) -> dict | None:
+        from app.db.models import SbomModel  # noqa: PLC0415
+
+        statement = select(SbomModel.payload).where(SbomModel.scan_id == scan_id)
+        return self.session.scalar(statement)
 
     def get_latest_completed_scan(self) -> PersistedScan | None:
         statement = (

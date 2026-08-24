@@ -107,7 +107,6 @@ class ScanModel(Base):
         onupdate=utc_now,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-
     worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     lease_expires_at: Mapped[datetime | None] = mapped_column(
@@ -115,6 +114,10 @@ class ScanModel(Base):
     )
     cancellation_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    sbom: Mapped["SbomModel"] = relationship(
+        back_populates="scan", cascade="all, delete-orphan", passive_deletes=True
     )
 
     repository: Mapped[RepositoryModel] = relationship(back_populates="scans")
@@ -129,6 +132,19 @@ class ScanModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+
+class SbomModel(Base):
+    __tablename__ = "sboms"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
+    scan_id: Mapped[str] = mapped_column(
+        ForeignKey("scans.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    scan: Mapped["ScanModel"] = relationship(back_populates="sbom")
 
 
 class FindingModel(Base):

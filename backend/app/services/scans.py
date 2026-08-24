@@ -161,6 +161,13 @@ class ScanService:
 
         return scan.report
 
+    def get_sbom(self, scan_id: str) -> dict:
+        self.get_scan(scan_id)
+        sbom = self.store.get_sbom(scan_id)
+        if sbom is None:
+            raise ResourceNotFoundError("No SBOM available for this scan.")
+        return sbom
+
     def get_scan_diff(self, scan_id: str) -> dict[str, list[PersistedFinding]]:
         current_scan = self.get_scan(scan_id)
         if current_scan.status != "completed":

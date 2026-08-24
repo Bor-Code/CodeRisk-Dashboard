@@ -392,6 +392,22 @@ export default function App() {
     }
   }
 
+  // Download SBOM
+  async function handleDownloadSBOM(scanId: string) {
+    try {
+      const data = await apiFetch<unknown>(`/scans/${scanId}/sbom`)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `sbom-${scanId}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert("SBOM not available or failed to download.")
+    }
+  }
+
   // Load history tab
   useEffect(() => {
     if (tab !== "history") return
@@ -547,6 +563,16 @@ export default function App() {
                   </span>
                   <StatusPill status={activeScan.status} />
                   <ScoreBadge score={activeScan.score} />
+                  
+                  {activeScan.status === "completed" && (
+                    <button 
+                      className="btn-outline" 
+                      style={{marginLeft: "auto", fontSize: "0.85rem", padding: "0.3rem 0.6rem"}}
+                      onClick={() => handleDownloadSBOM(activeScan.id)}
+                    >
+                      📦 Download SBOM
+                    </button>
+                  )}
                 </div>
 
                 {isScanning && (
@@ -789,6 +815,7 @@ export default function App() {
                       <th>Low</th>
                       <th>Files</th>
                       <th>Created</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -811,6 +838,18 @@ export default function App() {
                         <td>{s.total_files ?? "—"}</td>
                         <td className="mono">
                           {new Date(s.created_at).toLocaleString()}
+                        </td>
+                        <td>
+                          {s.status === "completed" && (
+                            <button
+                              className="btn-outline"
+                              style={{ padding: "0.2rem 0.5rem", fontSize: "0.8rem" }}
+                              onClick={() => handleDownloadSBOM(s.id)}
+                              title="Download SBOM"
+                            >
+                              📦 SBOM
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

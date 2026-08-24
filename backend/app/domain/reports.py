@@ -35,6 +35,7 @@ class ScanReport:
     severity_counts: dict[str, int]
     score: int
     file_tree: list[str]
+    sbom: dict | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)

@@ -363,12 +363,17 @@ def scan_repository(repo_path: str) -> ScanReport:
         dependency_files=dependency_files,
     )
 
+    from app.services.sbom import generate_sbom  # noqa: PLC0415
+
+    sbom = generate_sbom(root)
+
     return ScanReport(
         metadata=metadata,
         findings=findings,
         severity_counts=severity_counts,
         score=_calculate_score(severity_counts),
         file_tree=_build_file_tree(root, files),
+        sbom=sbom,
     )
 
 

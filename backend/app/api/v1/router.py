@@ -233,6 +233,17 @@ def get_markdown_report(scan_id: str, service: ScanServiceDependency) -> str:
 
 
 @router.get(
+    "/scans/{scan_id}/sbom",
+    responses=ERROR_RESPONSES,
+)
+def get_sbom_report(
+    scan_id: str,
+    service: ScanServiceDependency,
+) -> dict:
+    return service.get_sbom(scan_id)
+
+
+@router.get(
     "/engines",
     response_model=dict[str, bool],
     summary="List external engine availability",

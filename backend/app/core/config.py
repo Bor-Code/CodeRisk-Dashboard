@@ -5,6 +5,8 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
+DEFAULT_JWT_SECRET_KEY = "super-secret-default-key"
+MINIMUM_JWT_SECRET_LENGTH = 32
 
 
 def _default_database_url() -> SecretStr:
@@ -38,9 +40,9 @@ class Settings(BaseSettings):
     scan_max_attempts: int = 3
     scan_lease_seconds: int = 120
 
-    # Authentication — leave unset to disable (development/single-user mode)
+    # Authentication — development uses a default key, production must override it.
     api_key: SecretStr | None = None
-    jwt_secret_key: SecretStr = Field(default_factory=lambda: SecretStr("super-secret-default-key"))
+    jwt_secret_key: SecretStr = Field(default_factory=lambda: SecretStr(DEFAULT_JWT_SECRET_KEY))
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
@@ -67,6 +69,12 @@ class Settings(BaseSettings):
                 raise ValueError("Production requires PostgreSQL with the psycopg driver.")
             if "*" in self.cors_origins:
                 raise ValueError("Production CORS origins cannot contain a wildcard.")
+
+            jwt_secret = self.jwt_secret_key.get_secret_value()
+            if jwt_secret == DEFAULT_JWT_SECRET_KEY or len(jwt_secret) < MINIMUM_JWT_SECRET_LENGTH:
+                raise ValueError(
+                    "Production requires CODERISK_JWT_SECRET_KEY with at least 32 characters."
+                )
 
         return self
 

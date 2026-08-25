@@ -27,6 +27,9 @@ class UserModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
     username: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    first_name: Mapped[str] = mapped_column(String(100))
+    last_name: Mapped[str] = mapped_column(String(100))
+    phone_number: Mapped[str] = mapped_column(String(20))
     hashed_password: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
@@ -168,6 +171,8 @@ class FindingModel(Base):
     line: Mapped[int | None] = mapped_column(Integer, nullable=True)
     evidence: Mapped[str] = mapped_column(Text)
     remediation: Mapped[str] = mapped_column(Text)
+    engine_id: Mapped[str] = mapped_column(String(64), default="built-in")
+    rule_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_ignored: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
@@ -192,3 +197,23 @@ class EngineRunModel(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     scan: Mapped[ScanModel] = relationship(back_populates="engine_runs")
+
+
+class IntegrationModel(Base):
+    __tablename__ = "integrations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
+    name: Mapped[str] = mapped_column(String(255))
+    integration_type: Mapped[str] = mapped_column(String(64))
+    credentials: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PolicyModel(Base):
+    __tablename__ = "policies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
+    name: Mapped[str] = mapped_column(String(255))
+    rule_type: Mapped[str] = mapped_column(String(64))
+    rule_value: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

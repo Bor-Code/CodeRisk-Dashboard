@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import type { FormEvent } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { Zap, Search, History, Settings, Shield, LayoutDashboard, Blocks, FileCheck, Users, FileText, Download } from "lucide-react"
 import "./App.css"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -70,9 +71,53 @@ interface EngineAvailability {
   "osv-scanner": boolean
 }
 
+interface UserProfile {
+  id: string
+  username: string
+  first_name: string
+  last_name: string
+  phone_number: string
+  created_at: string
+}
+
+interface GlobalFinding {
+  id: string
+  scan_id: string
+  title: string
+  severity: Severity
+  category: string
+  file_path: string
+  created_at: string
+}
+
+interface ScanHistoryPoint {
+  date: string
+  scans: number
+}
+
+interface DashboardStats {
+  total_scans: number
+  total_findings: number
+  high_findings: number
+  history: ScanHistoryPoint[]
+}
+
+interface Integration {
+  id: string
+  name: string
+  type: string
+}
+
+interface Policy {
+  id: string
+  name: string
+  rule_type: string
+  rule_value: string
+}
+
 // ─── API ────────────────────────────────────────────────────────────────────
 
-const API = "http://127.0.0.1:8000/api/v1"
+const API = (import.meta.env.VITE_API_BASE_URL ?? "/api/v1").replace(/\/$/, "")
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = window.localStorage?.getItem("coderisk_token")
@@ -175,11 +220,14 @@ function EngineStatusBar({ engines }: { engines: EngineAvailability | null }) {
 
 // ─── Main App ────────────────────────────────────────────────────────────────
 
-type Tab = "scan" | "history" | "settings"
+type Tab = "dashboard" | "scan" | "vulnerabilities" | "reports" | "integrations" | "policies" | "team" | "history" | "settings"
 
 function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
   const [isRegister, setIsRegister] = useState(false)
   const [username, setUsername] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -193,7 +241,13 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
         await fetch(`${API}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ 
+            username, 
+            password,
+            first_name: firstName,
+            last_name: lastName,
+            phone_number: phone
+          })
         }).then(async r => {
           if (!r.ok) {
             const err = await r.json()
@@ -230,29 +284,68 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
 
   return (
     <div className="login-container">
-      <div className="glass-panel login-panel">
-        <div className="login-header">
-          <div className="brand-logo">🛡️</div>
+      {/* Animated Background Elements */}
+      <div className="bg-shape shape1"></div>
+      <div className="bg-shape shape2"></div>
+      <div className="bg-shape shape3"></div>
+
+      <div className="login-content">
+        <div className="glass-panel logo-card">
           <h2>CodeRisk</h2>
-          <p>{isRegister ? "Create an account" : "Sign in to your account"}</p>
+          <p>{isRegister ? "Secure Workspace Creation" : "Enterprise Security Portal"}</p>
         </div>
         
+        <div className="glass-panel login-panel">
         <form onSubmit={handleSubmit} className="login-form">
+          {isRegister && (
+            <div className="name-row">
+              <div className="form-group">
+                <label htmlFor="firstName">First Name</label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="lastName">Last Name</label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          )}
+          
           <div className="form-group">
-            <label>Username</label>
-            <input 
-              type="text" 
-              value={username} 
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
               onChange={e => setUsername(e.target.value)} 
               required 
               minLength={3}
             />
           </div>
+
+          {isRegister && (
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number</label>
+              <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
+            </div>
+          )}
           <div className="form-group">
-            <label>Password</label>
-            <input 
-              type="password" 
-              value={password} 
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
               onChange={e => setPassword(e.target.value)} 
               required
               minLength={6}
@@ -269,6 +362,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
           <button type="button" onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
           </button>
+        </div>
         </div>
       </div>
     </div>
@@ -319,6 +413,54 @@ export default function App() {
       .then(setEngines)
       .catch(() => null)
   }, [])
+
+
+  // New States for Extensions
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [allFindings, setAllFindings] = useState<GlobalFinding[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+
+  const [integrations, setIntegrations] = useState<Integration[]>([])
+  const [integrationName, setIntegrationName] = useState('')
+  const [integrationType, setIntegrationType] = useState('github')
+  const [integrationCreds, setIntegrationCreds] = useState('')
+  
+  const [policies, setPolicies] = useState<Policy[]>([])
+  const [policyName, setPolicyName] = useState('')
+  const [policyType, setPolicyType] = useState('threshold')
+  const [policyValue, setPolicyValue] = useState('')
+
+  useEffect(() => {
+    if (tab === 'team') apiFetch<UserProfile[]>('/extensions/users').then(setUsers).catch(console.error)
+    if (tab === 'vulnerabilities') apiFetch<GlobalFinding[]>('/extensions/findings/all').then(setAllFindings).catch(console.error)
+    if (tab === 'dashboard') apiFetch<DashboardStats>('/extensions/stats').then(setStats).catch(console.error)
+    if (tab === 'integrations') apiFetch<Integration[]>('/extensions/integrations').then(setIntegrations).catch(console.error)
+    if (tab === 'policies') apiFetch<Policy[]>('/extensions/policies').then(setPolicies).catch(console.error)
+  }, [tab])
+
+  const handleAddIntegration = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await apiFetch('/extensions/integrations', {
+        method: 'POST',
+        body: JSON.stringify({name: integrationName, integration_type: integrationType, credentials: integrationCreds})
+      })
+      setIntegrationName(''); setIntegrationCreds('')
+      apiFetch<Integration[]>('/extensions/integrations').then(setIntegrations)
+    } catch { alert('Failed to save integration') }
+  }
+
+  const handleAddPolicy = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await apiFetch('/extensions/policies', {
+        method: 'POST',
+        body: JSON.stringify({name: policyName, rule_type: policyType, rule_value: policyValue})
+      })
+      setPolicyName(''); setPolicyValue('')
+      apiFetch<Policy[]>('/extensions/policies').then(setPolicies)
+    } catch { alert('Failed to save policy') }
+  }
 
   // Poll active scan
   const handleScanComplete = useCallback(
@@ -452,26 +594,37 @@ export default function App() {
   return (
     <div className="app-root">
       {/* ── Sidebar ── */}
-      <nav className="sidebar">
+      <nav className="sidebar glass-panel">
         <div className="sidebar-brand">
-          <span className="brand-icon">⚡</span>
+          <Zap className="brand-icon" size={24} style={{ color: "#6366f1" }} />
           <span className="brand-name">CodeRisk</span>
         </div>
 
         <ul className="nav-list">
-          {(["scan", "history", "settings"] as Tab[]).map((t) => (
-            <li key={t}>
-              <button
-                className={`nav-item ${tab === t ? "active" : ""}`}
-                onClick={() => setTab(t)}
-              >
-                <span className="nav-icon">
-                  {t === "scan" ? "🔍" : t === "history" ? "📋" : "⚙️"}
-                </span>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            </li>
-          ))}
+          {([
+            { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { id: "scan", label: "Scan", icon: Search },
+            { id: "vulnerabilities", label: "Vulnerabilities", icon: Shield },
+            { id: "reports", label: "Reports", icon: FileText },
+            { id: "integrations", label: "Integrations", icon: Blocks },
+            { id: "policies", label: "Policies", icon: FileCheck },
+            { id: "team", label: "Team", icon: Users },
+            { id: "history", label: "History", icon: History },
+            { id: "settings", label: "Settings", icon: Settings }
+          ] as const).map((item) => {
+            const Icon = item.icon
+            return (
+              <li key={item.id}>
+                <button
+                  className={`nav-item ${tab === item.id ? "active" : ""}`}
+                  onClick={() => setTab(item.id as Tab)}
+                >
+                  <Icon className="nav-icon" size={18} />
+                  {item.label}
+                </button>
+              </li>
+            )
+          })}
         </ul>
 
         <EngineStatusBar engines={engines} />
@@ -479,6 +632,204 @@ export default function App() {
 
       {/* ── Main content ── */}
       <main className="main-content">
+        
+        {tab === "dashboard" && (
+          <div className="tab-content">
+            <header className="page-header"><div><h1>Dashboard</h1><p className="page-sub">System-wide security overview</p></div></header>
+            {stats && (
+              <>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                  <div className="glass-panel flex-1 hover-scale" style={{ textAlign: 'center', padding: '30px', borderTop: '2px solid var(--blue)' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>Total Scans</h3>
+                    <div style={{ fontSize: '42px', fontWeight: '800', color: '#fff' }}>{stats.total_scans}</div>
+                  </div>
+                  <div className="glass-panel flex-1 hover-scale" style={{ textAlign: 'center', padding: '30px', borderTop: '2px solid var(--accent)' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>Total Findings</h3>
+                    <div style={{ fontSize: '42px', fontWeight: '800', color: '#fff' }}>{stats.total_findings}</div>
+                  </div>
+                  <div className="glass-panel flex-1 hover-scale" style={{ textAlign: 'center', padding: '30px', borderTop: '2px solid var(--red)' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>High Risk Findings</h3>
+                    <div style={{ fontSize: '42px', fontWeight: '800', color: '#fff' }}>{stats.high_findings}</div>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '20px' }}>
+                  <div className="glass-panel" style={{ flex: 1, padding: '20px' }}>
+                    <h3 style={{ marginBottom: '20px', color: 'var(--text-primary)' }}>Scan History (Last 7 Days)</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={stats.history || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="date" stroke="var(--text-secondary)" />
+                        <YAxis stroke="var(--text-secondary)" />
+                        <Tooltip contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px' }} />
+                        <Line type="monotone" dataKey="scans" stroke="var(--accent)" strokeWidth={3} activeDot={{ r: 8 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === "team" && (
+          <div className="tab-content">
+            <header className="page-header"><div><h1>Team</h1><p className="page-sub">Manage registered users</p></div></header>
+            <div className="glass-panel table-scroll">
+              <table className="history-table">
+                <thead><tr><th>Username</th><th>First Name</th><th>Last Name</th><th>Phone</th><th>Joined</th></tr></thead>
+                <tbody>
+                  {users.map((u, i) => (
+                    <tr key={i}><td>{u.username}</td><td>{u.first_name}</td><td>{u.last_name}</td><td>{u.phone_number}</td><td className="mono">{new Date(u.created_at).toLocaleDateString()}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "vulnerabilities" && (
+          <div className="tab-content">
+            <header className="page-header"><div><h1>Global Vulnerabilities</h1><p className="page-sub">All findings across all projects</p></div></header>
+            <div className="glass-panel table-scroll">
+              <table className="findings-table">
+                <thead><tr><th>Severity</th><th>Title</th><th>Category</th><th>File Path</th><th>Date</th></tr></thead>
+                <tbody>
+                  {allFindings.map((f, i) => (
+                    <tr key={i}>
+                      <td><span className={`badge sev-${f.severity}`}>{f.severity}</span></td>
+                      <td><strong>{f.title}</strong></td>
+                      <td>{f.category}</td>
+                      <td><code className="evidence">{f.file_path}</code></td>
+                      <td className="mono">{new Date(f.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "integrations" && (
+          <div className="tab-content">
+            <header className="page-header"><div><h1>Integrations</h1><p className="page-sub">Connect external services</p></div></header>
+            <form className="glass-panel" onSubmit={handleAddIntegration} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '30px', padding: '24px' }}>
+              <div className="form-group">
+                <label htmlFor="integrationName">Name</label>
+                <input
+                  id="integrationName"
+                  required
+                  value={integrationName}
+                  onChange={e => setIntegrationName(e.target.value)}
+                  placeholder="My GitHub"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="integrationType">Type</label>
+                <select
+                  id="integrationType"
+                  className="type-select"
+                  style={{ height: '44px', borderRadius: '6px' }}
+                  value={integrationType}
+                  onChange={e => setIntegrationType(e.target.value)}
+                >
+                  <option value="github">GitHub</option>
+                  <option value="slack">Slack</option>
+                </select>
+              </div>
+              <div className="form-group flex-1">
+                <label htmlFor="integrationCreds">Token / Webhook URL</label>
+                <input
+                  id="integrationCreds"
+                  required
+                  type="password"
+                  value={integrationCreds}
+                  onChange={e => setIntegrationCreds(e.target.value)}
+                  placeholder="ghp_..."
+                />
+              </div>
+              <button className="btn-primary" type="submit">Save</button>
+            </form>
+            <div className="glass-panel table-scroll">
+              <table className="history-table">
+                <thead><tr><th>Name</th><th>Type</th></tr></thead>
+                <tbody>
+                  {integrations.map((i, idx) => (
+                    <tr key={idx}><td>{i.name}</td><td>{i.type}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "policies" && (
+          <div className="tab-content">
+            <header className="page-header"><div><h1>Security Policies</h1><p className="page-sub">Define global security rules</p></div></header>
+            <form className="glass-panel" onSubmit={handleAddPolicy} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '30px', padding: '24px' }}>
+              <div className="form-group">
+                <label htmlFor="policyName">Policy Name</label>
+                <input
+                  id="policyName"
+                  required
+                  value={policyName}
+                  onChange={e => setPolicyName(e.target.value)}
+                  placeholder="Fail on Critical"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="policyType">Rule Type</label>
+                <select
+                  id="policyType"
+                  className="type-select"
+                  style={{ height: '44px', borderRadius: '6px' }}
+                  value={policyType}
+                  onChange={e => setPolicyType(e.target.value)}
+                >
+                  <option value="max_severity">Max Severity</option>
+                  <option value="min_score">Min Score</option>
+                </select>
+              </div>
+              <div className="form-group flex-1">
+                <label htmlFor="policyValue">Value</label>
+                <input
+                  id="policyValue"
+                  required
+                  value={policyValue}
+                  onChange={e => setPolicyValue(e.target.value)}
+                  placeholder="high"
+                />
+              </div>
+              <button className="btn-primary" type="submit">Add Policy</button>
+            </form>
+            <div className="glass-panel table-scroll">
+              <table className="history-table">
+                <thead><tr><th>Policy Name</th><th>Rule</th><th>Value</th></tr></thead>
+                <tbody>
+                  {policies.map((p, idx) => (
+                    <tr key={idx}><td>{p.name}</td><td>{p.rule_type}</td><td>{p.rule_value}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "reports" && (
+          <div className="tab-content">
+            <header className="page-header"><div><h1>Reports</h1><p className="page-sub">Generate compliance and security reports</p></div></header>
+            <div className="empty-state glass-panel">
+              <FileText size={64} style={{ margin: "0 auto 16px", color: "var(--text-muted)" }} />
+              <h2>Export Options</h2>
+              <p>Download full system reports for auditing and compliance.</p>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button type="button" className="btn-secondary" onClick={() => alert('PDF export initialized.')}><Download size={14} style={{marginRight: 4}}/> PDF Report</button>
+                <button type="button" className="btn-secondary" onClick={() => alert('CSV export initialized.')}><Download size={14} style={{marginRight: 4}}/> CSV Export</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ══ SCAN TAB ══ */}
         {tab === "scan" && (
           <div className="tab-content">
@@ -569,7 +920,7 @@ export default function App() {
                       style={{marginLeft: "auto", fontSize: "0.85rem", padding: "0.3rem 0.6rem"}}
                       onClick={() => handleDownloadSBOM(activeScan.id)}
                     >
-                      📦 Download SBOM
+                      <Download size={14} style={{marginRight: 4, verticalAlign: 'middle'}}/> Download SBOM
                     </button>
                   )}
                 </div>
@@ -652,7 +1003,7 @@ export default function App() {
                   <div className="loading-state">Loading findings…</div>
                 ) : filteredFindings.length === 0 ? (
                   <div className="empty-findings">
-                    <span>🎉</span>
+                    <span><Shield size={32} style={{color:'var(--text-muted)'}}/></span>
                     <p>No findings at this severity level.</p>
                   </div>
                 ) : (
@@ -769,7 +1120,7 @@ export default function App() {
               <div className="loading-state glass-panel">Loading history…</div>
             ) : scanHistory.length === 0 ? (
               <div className="empty-state glass-panel">
-                <div className="empty-icon">📋</div>
+                <div className="empty-icon"><History size={48} style={{margin:'0 auto 16px', color:'var(--text-muted)'}}/></div>
                 <h2>No scans yet</h2>
                 <p>Run your first scan from the Scan tab.</p>
               </div>
@@ -846,7 +1197,7 @@ export default function App() {
                               onClick={() => handleDownloadSBOM(s.id)}
                               title="Download SBOM"
                             >
-                              📦 SBOM
+                              <Download size={14} style={{marginRight: 4, verticalAlign: 'middle'}}/> SBOM
                             </button>
                           )}
                         </td>

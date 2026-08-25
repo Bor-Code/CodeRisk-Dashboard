@@ -18,3 +18,4 @@ build/
 .DS_Store
 test_output.txt
 patch*.py
+backend/bin/

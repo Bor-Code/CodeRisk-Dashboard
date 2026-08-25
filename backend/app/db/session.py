@@ -9,6 +9,9 @@ from app.db.base import Base
 from app.db.models import (
     EngineRunModel,
     FindingModel,
+    IgnoredFindingModel,
+    IntegrationModel,
+    PolicyModel,
     RepositoryModel,
     SbomModel,
     ScanModel,
@@ -20,10 +23,13 @@ REQUIRED_TABLES = {
     ScanModel.__tablename__,
     FindingModel.__tablename__,
     EngineRunModel.__tablename__,
+    IgnoredFindingModel.__tablename__,
     UserModel.__tablename__,
     SbomModel.__tablename__,
+    IntegrationModel.__tablename__,
+    PolicyModel.__tablename__,
 }
-SCHEMA_REVISION = "b8e854eb3d0b"
+SCHEMA_REVISION = "20260825_0001"
 
 
 @dataclass(frozen=True)

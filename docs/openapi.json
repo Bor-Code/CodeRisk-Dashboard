@@ -115,6 +115,7 @@
           },
           "status": {
             "enum": [
+              "queued",
               "running",
               "completed",
               "failed",
@@ -135,6 +136,45 @@
           "error_message"
         ],
         "title": "EngineRunResponse",
+        "type": "object"
+      },
+      "ExtensionUserResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone_number": {
+            "title": "Phone Number",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "first_name",
+          "last_name",
+          "phone_number",
+          "created_at"
+        ],
+        "title": "ExtensionUserResponse",
         "type": "object"
       },
       "FindingResponse": {
@@ -242,6 +282,50 @@
         "title": "FindingResponse",
         "type": "object"
       },
+      "GlobalFindingResponse": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "scan_id": {
+            "title": "Scan Id",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scan_id",
+          "title",
+          "severity",
+          "category",
+          "file_path",
+          "created_at"
+        ],
+        "title": "GlobalFindingResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -277,6 +361,57 @@
           "source_finding_id"
         ],
         "title": "IgnoreFindingRequest",
+        "type": "object"
+      },
+      "IntegrationCreate": {
+        "properties": {
+          "credentials": {
+            "minLength": 1,
+            "title": "Credentials",
+            "type": "string"
+          },
+          "integration_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Integration Type",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "integration_type",
+          "credentials"
+        ],
+        "title": "IntegrationCreate",
+        "type": "object"
+      },
+      "IntegrationResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "IntegrationResponse",
         "type": "object"
       },
       "Page_FindingResponse_": {
@@ -370,6 +505,62 @@
           "limit"
         ],
         "title": "Page[ScanSummaryResponse]",
+        "type": "object"
+      },
+      "PolicyCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rule_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Rule Type",
+            "type": "string"
+          },
+          "rule_value": {
+            "minLength": 1,
+            "title": "Rule Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "rule_type",
+          "rule_value"
+        ],
+        "title": "PolicyCreate",
+        "type": "object"
+      },
+      "PolicyResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rule_type": {
+            "title": "Rule Type",
+            "type": "string"
+          },
+          "rule_value": {
+            "title": "Rule Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "rule_type",
+          "rule_value"
+        ],
+        "title": "PolicyResponse",
         "type": "object"
       },
       "ReportFindingResponse": {
@@ -736,6 +927,24 @@
         "title": "ScanDiffResponse",
         "type": "object"
       },
+      "ScanHistoryPoint": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "scans": {
+            "title": "Scans",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "scans"
+        ],
+        "title": "ScanHistoryPoint",
+        "type": "object"
+      },
       "ScanReportResponse": {
         "properties": {
           "file_tree": {
@@ -956,6 +1165,37 @@
         "title": "SeverityCountsResponse",
         "type": "object"
       },
+      "StatsResponse": {
+        "properties": {
+          "high_findings": {
+            "title": "High Findings",
+            "type": "integer"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ScanHistoryPoint"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "total_findings": {
+            "title": "Total Findings",
+            "type": "integer"
+          },
+          "total_scans": {
+            "title": "Total Scans",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_scans",
+          "total_findings",
+          "high_findings",
+          "history"
+        ],
+        "title": "StatsResponse",
+        "type": "object"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -976,9 +1216,27 @@
       },
       "UserCreateRequest": {
         "properties": {
+          "first_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name",
+            "type": "string"
+          },
           "password": {
             "minLength": 6,
             "title": "Password",
+            "type": "string"
+          },
+          "phone_number": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Phone Number",
             "type": "string"
           },
           "username": {
@@ -990,6 +1248,9 @@
         },
         "required": [
           "username",
+          "first_name",
+          "last_name",
+          "phone_number",
           "password"
         ],
         "title": "UserCreateRequest",
@@ -1002,8 +1263,20 @@
             "title": "Created At",
             "type": "string"
           },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone_number": {
+            "title": "Phone Number",
             "type": "string"
           },
           "username": {
@@ -1014,6 +1287,9 @@
         "required": [
           "id",
           "username",
+          "first_name",
+          "last_name",
+          "phone_number",
           "created_at"
         ],
         "title": "UserResponse",
@@ -1213,6 +1489,219 @@
           }
         ],
         "summary": "List external engine availability"
+      }
+    },
+    "/api/v1/extensions/findings/all": {
+      "get": {
+        "operationId": "get_all_findings_api_v1_extensions_findings_all_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GlobalFindingResponse"
+                  },
+                  "title": "Response Get All Findings Api V1 Extensions Findings All Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get All Findings"
+      }
+    },
+    "/api/v1/extensions/integrations": {
+      "get": {
+        "operationId": "get_integrations_api_v1_extensions_integrations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IntegrationResponse"
+                  },
+                  "title": "Response Get Integrations Api V1 Extensions Integrations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Integrations"
+      },
+      "post": {
+        "operationId": "create_integration_api_v1_extensions_integrations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Integration"
+      }
+    },
+    "/api/v1/extensions/policies": {
+      "get": {
+        "operationId": "get_policies_api_v1_extensions_policies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PolicyResponse"
+                  },
+                  "title": "Response Get Policies Api V1 Extensions Policies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Policies"
+      },
+      "post": {
+        "operationId": "create_policy_api_v1_extensions_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Policy"
+      }
+    },
+    "/api/v1/extensions/stats": {
+      "get": {
+        "operationId": "get_stats_api_v1_extensions_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Stats"
+      }
+    },
+    "/api/v1/extensions/users": {
+      "get": {
+        "operationId": "get_users_api_v1_extensions_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionUserResponse"
+                  },
+                  "title": "Response Get Users Api V1 Extensions Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Users"
       }
     },
     "/api/v1/repositories": {

@@ -1,15 +1,15 @@
-﻿# MVP Scope
+# MVP Scope
 
 ## Goal
 
-Build a realistic mini security dashboard that scans a local repository and produces actionable security findings.
+Build a realistic mini security dashboard that scans repositories and produces actionable security findings.
 
 ## Included In MVP
 
 ### Input
 
 - Local repository path
-- GitHub repository URL field in the UI, but remote cloning will be deferred
+- GitHub repository URL field and API support for controlled remote repository ingestion
 
 ### Repository Analysis
 
@@ -29,7 +29,7 @@ Detect these files:
 - pyproject.toml
 - poetry.lock
 
-Known vulnerability lookup is not included in the first scanner version. OSV-Scanner or Trivy can be integrated later.
+The built-in scanner records dependency manifests. When OSV-Scanner is installed, dependency vulnerability results are normalized into the same findings model.
 
 ### Secret Scanning
 
@@ -42,7 +42,7 @@ Detect possible:
 - JWT secrets
 - GitHub-like tokens
 
-Secret values must always be masked.
+Secret values must always be masked before they are persisted, returned by the API, or exported.
 
 ### Config Checks
 
@@ -65,20 +65,26 @@ Detect:
 - React dangerouslySetInnerHTML
 - insecure HTTP URL
 
+Semgrep results are also normalized when the Semgrep binary is installed.
+
 ### Reporting
 
 - JSON export
 - Markdown export
+- SBOM export when Syft is installed
 - severity counts
 - 0-100 score
 
-## Deferred
+### Platform
 
-- GitHub remote clone
-- real dependency CVE lookup
-- Semgrep integration
-- Gitleaks integration
-- SBOM generation
-- authentication
-- PostgreSQL
-- Docker
+- JWT authentication
+- PostgreSQL production deployment
+- Docker Compose self-hosting
+- durable scan queue and persisted scan history
+
+## Deferred / Hardening Follow-Up
+
+- deeper GitHub workspace isolation and cleanup controls
+- richer dependency and SAST rule configuration
+- integration credential encryption at rest
+- production observability and release hardening

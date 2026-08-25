@@ -92,7 +92,7 @@ class GitleaksAdapter(EngineAdapter):
                     file_path=file_path,
                     line=line,
                     severity=_SEVERITY_MAP.get(str(hit.get("Severity", "")).lower(), "high"),
-                    category="secrets",
+                    category="secret",
                     evidence=masked,
                     remediation="Rotate the exposed credential and remove it from source history.",
                 )

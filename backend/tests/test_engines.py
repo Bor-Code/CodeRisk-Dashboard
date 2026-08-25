@@ -75,7 +75,7 @@ class TestGitleaksAdapter:
         assert f.engine_id == "gitleaks"
         assert f.rule_id == "stripe-api-key"
         assert f.severity == "high"
-        assert f.category == "secrets"
+        assert f.category == "secret"
         assert f.file_path == "config.py"
         assert f.line == 10
         # Secret should be partially masked
@@ -255,7 +255,7 @@ class TestRegistry:
             file_path="test.py",
             line=1,
             severity="high",
-            category="secrets",
+            category="secret",
         )
 
         mock_adapter = MagicMock()

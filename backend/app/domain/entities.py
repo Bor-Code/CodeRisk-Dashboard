@@ -6,7 +6,7 @@ from app.domain.reports import Finding, FindingCategory, ScanReport, Severity
 
 RepositoryTargetType = Literal["local_path", "github_url"]
 ScanStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
-EngineRunStatus = Literal["running", "completed", "failed", "cancelled"]
+EngineRunStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,8 @@ class PersistedFinding:
     remediation: str
     created_at: datetime
     is_ignored: bool = False
+    engine_id: str = "built-in"
+    rule_id: str | None = None
 
     def to_report_finding(self) -> Finding:
         return Finding(
@@ -76,6 +78,8 @@ class PersistedFinding:
             line=self.line,
             evidence=self.evidence,
             remediation=self.remediation,
+            engine_id=self.engine_id,
+            rule_id=self.rule_id,
         )
 
 

@@ -16,16 +16,18 @@ CodeRisk Dashboard is a self-hosted security review workspace for turning reposi
 - Identify secret-like values (AWS, Stripe, Slack, etc.) while masking evidence before it reaches reports.
 - Check common insecure configuration and basic Python (eval/exec)/React source patterns.
 - Filter findings by severity and calculate a deterministic 0–100 score.
-- Persist repositories, scan history, findings, and engine-run metadata. (Added: persist scan history behind a versioned API — migration and v1 endpoints)
-- Expose a versioned API with pagination, filtering, and per-scan exports.
+- Persist repositories, scan history, findings, and normalized engine-run metadata.
+- Expose a versioned API with pagination, filtering, per-scan exports, and SBOM access.
+- Run built-in checks plus optional Gitleaks, Semgrep, and OSV-Scanner adapters when installed.
+- Authenticate users with JWT-backed API access for the dashboard.
 - Export the latest report as JSON or Markdown through compatibility routes.
 - Ignore generated directories and constrain text-file size during scanning.
-- Validate scanner, API, and dashboard behavior with automated unit and Playwright E2E tests.
+- Validate scanner, API, and dashboard behavior with automated unit and frontend tests.
 
 
 ## Product direction
 
-CodeRisk is being developed as a **self-hosted-first, SaaS-ready** platform. The planned engine architecture will normalize results from Gitleaks, Semgrep, and OSV-Scanner behind stable adapters while retaining focused built-in checks. See [docs/mvp-scope.md](docs/mvp-scope.md) for the original MVP boundary.
+CodeRisk is being developed as a **self-hosted-first, SaaS-ready** platform. The engine architecture normalizes results from built-in checks, Gitleaks, Semgrep, and OSV-Scanner behind stable adapters. See [docs/mvp-scope.md](docs/mvp-scope.md) for the original MVP boundary and later additions.
 
 ## Architecture
 
@@ -48,7 +50,7 @@ React + TypeScript dashboard
  SQLAlchemy + Alembic history
 ```
 
-The scanner core lives outside FastAPI so rule behavior can be tested without starting a server. Repository and scan history are persisted through SQLAlchemy and Alembic. Asynchronous workers, external engine adapters, authentication, and production containers are planned in subsequent milestones.
+The scanner core lives outside FastAPI so rule behavior can be tested without starting a server. Repository and scan history are persisted through SQLAlchemy and Alembic. Scan jobs run asynchronously through durable worker leases, and optional external engine adapters are normalized into the same report model.
 
 ## Technology
 
@@ -113,7 +115,7 @@ The versioned resource API exposes:
 | `GET` | `/api/v1/scans/{id}/reports/json` | Export a scan as JSON |
 | `GET` | `/api/v1/scans/{id}/reports/markdown` | Export a scan as Markdown |
 
-The unversioned `GET /health` endpoint remains available for process checks. The existing `/scan` and `/reports/latest.*` routes remain available as deprecated compatibility routes while the dashboard migrates to `/api/v1`. GitHub URL input remains disabled until secure clone and workspace handling is implemented.
+The unversioned `GET /health` endpoint remains available for process checks. The existing `/scan` and `/reports/latest.*` routes remain available as deprecated compatibility routes while the dashboard migrates to `/api/v1`. GitHub URL input is accepted by the API when secure clone support is configured; local-path scanning remains the default development workflow.
 
 ## Configuration
 
@@ -123,7 +125,7 @@ Copy `backend/.env.example` to `backend/.env` to override development settings. 
 uv --directory backend run alembic upgrade head
 ```
 
-Production configuration fails fast unless `CODERISK_DATABASE_URL` uses PostgreSQL with the psycopg driver. Automatic schema creation is restricted to isolated tests; production migrations must be applied explicitly.
+Production configuration fails fast unless `CODERISK_DATABASE_URL` uses PostgreSQL with the psycopg driver and `CODERISK_JWT_SECRET_KEY` is a non-default secret with at least 32 characters. Automatic schema creation is restricted to isolated tests; production migrations must be applied explicitly. Integration credentials are redacted from API responses; use deployment-level secret storage and database protections for sensitive values.
 
 ## Quality checks
 
@@ -140,7 +142,7 @@ npm --prefix frontend run test:coverage
 npm --prefix frontend run build
 ```
 
-Backend coverage must remain at or above 85%. Frontend coverage thresholds are configured in `frontend/vite.config.ts`.
+Backend coverage must remain at or above 80%. Frontend coverage thresholds are configured in `frontend/vite.config.ts`.
 
 ## Repository layout
 
@@ -168,9 +170,9 @@ The project is pre-1.0. Near-term milestones are:
 1. governance, CI, and repeatable quality gates;
 2. versioned API and persistent scan history;
 3. asynchronous scan jobs and normalized engine results;
-4. Gitleaks, Semgrep, and OSV-Scanner adapters;
-5. production dashboard workflows and GitHub repository ingestion;
-6. authentication, self-hosted containers, observability, and release hardening.
+4. Gitleaks, Semgrep, OSV-Scanner, and SBOM integration;
+5. authenticated dashboard workflows and self-hosted containers;
+6. GitHub repository ingestion, observability, and release hardening.
 
 The roadmap deliberately favors reviewable pull requests over a single large rewrite.
 

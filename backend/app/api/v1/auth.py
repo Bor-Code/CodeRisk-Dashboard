@@ -41,7 +41,13 @@ def register(request: UserCreateRequest, session: Session = Depends(get_session)
         )
 
     hashed_password = get_password_hash(request.password)
-    new_user = UserModel(username=request.username, hashed_password=hashed_password)
+    new_user = UserModel(
+        username=request.username,
+        first_name=request.first_name,
+        last_name=request.last_name,
+        phone_number=request.phone_number,
+        hashed_password=hashed_password,
+    )
     session.add(new_user)
     session.commit()
     session.refresh(new_user)

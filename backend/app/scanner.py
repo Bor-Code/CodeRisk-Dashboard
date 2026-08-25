@@ -326,9 +326,10 @@ def scan_repository(repo_path: str) -> ScanReport:
         from app.engines.registry import run_all_engines  # noqa: PLC0415
 
         for raw in run_all_engines(repo_path):
+            normalized_category = "secret" if raw.category == "secrets" else raw.category
             category: FindingCategory = (
-                raw.category
-                if raw.category in ("dependency", "metadata", "secret", "config", "sast")
+                normalized_category
+                if normalized_category in ("dependency", "metadata", "secret", "config", "sast")
                 else "sast"
             )
             severity: Severity = (

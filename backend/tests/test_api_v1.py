@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.engines.base import RawFinding
 from app.jobs.worker import ScanWorker
 from app.main import create_app
 
@@ -96,6 +97,66 @@ def test_v1_scan_history_filters_findings_and_exports_reports(
     assert "# CodeRisk Scan Report" in markdown_response.text
 
 
+def test_queued_scan_detail_returns_without_validation_error(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    repository = _create_repository(client, _make_repository(tmp_path))
+    scan_response = client.post(f"/api/v1/repositories/{repository['id']}/scans")
+    scan_id = scan_response.json()["id"]
+
+    detail_response = client.get(f"/api/v1/scans/{scan_id}")
+
+    assert scan_response.status_code == 202
+    assert detail_response.status_code == 200
+    assert detail_response.json()["engine_runs"][0]["status"] in {
+        "queued",
+        "running",
+        "completed",
+    }
+
+
+def test_external_engine_metadata_and_secret_category_are_persisted(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _make_repository(tmp_path)
+    monkeypatch.setattr(
+        "app.engines.registry.run_all_engines",
+        lambda _target: [
+            RawFinding(
+                engine_id="gitleaks",
+                rule_id="github-token",
+                title="GitHub token detected",
+                description="GitHub token detected",
+                file_path="config.py",
+                line=3,
+                severity="high",
+                category="secrets",
+                evidence="ghp_***",
+                remediation="Rotate the token.",
+            )
+        ],
+    )
+
+    scan_response = client.post(
+        "/scan",
+        json={"target": str(repo), "target_type": "local_path"},
+    )
+    scans_response = client.get("/api/v1/scans?limit=1")
+    scan_id = scans_response.json()["items"][0]["id"]
+    findings_response = client.get(f"/api/v1/scans/{scan_id}/findings?category=secret")
+
+    assert scan_response.status_code == 200
+    assert findings_response.status_code == 200
+    external_finding = next(
+        item for item in findings_response.json()["items"] if item["rule_id"] == "github-token"
+    )
+    assert external_finding["engine_id"] == "gitleaks"
+    assert external_finding["category"] == "secret"
+
+
 def test_scan_history_survives_application_restart(
     test_settings: Settings,
     tmp_path: Path,
@@ -105,7 +166,13 @@ def test_scan_history_survives_application_restart(
     from app.db.models import UserModel
 
     def mock_user():
-        return UserModel(id="test-id", username="test-user")
+        return UserModel(
+            id="test-id",
+            username="test-user",
+            first_name="Test",
+            last_name="User",
+            phone_number="+10000000000",
+        )
 
     first_application = create_app(test_settings)
     first_application.dependency_overrides[require_jwt] = mock_user

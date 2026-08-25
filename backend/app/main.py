@@ -1,7 +1,12 @@
+# ruff: noqa: E402
 import logging
+import os
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
+bin_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bin"))
+os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.errors import register_exception_handlers
 from app.api.legacy import router as legacy_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.extensions import router as extensions_router
 from app.api.v1.router import router as v1_router
 from app.core.config import Settings, get_settings
 from app.db.session import create_database, prepare_database
@@ -63,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.state.database = database
     application.state.settings = runtime_settings
+    application.dependency_overrides[get_settings] = lambda: runtime_settings
     application.add_middleware(
         CORSMiddleware,
         allow_origins=runtime_settings.cors_origins,
@@ -74,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(legacy_router)
     application.include_router(auth_router)
     application.include_router(v1_router)
+    application.include_router(extensions_router)
     return application
 
 

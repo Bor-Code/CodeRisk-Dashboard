@@ -25,6 +25,14 @@ def test_production_rejects_wildcard_cors() -> None:
         )
 
 
+def test_production_requires_strong_jwt_secret() -> None:
+    with pytest.raises(ValidationError, match="CODERISK_JWT_SECRET_KEY"):
+        Settings(
+            environment="production",
+            database_url=SecretStr("postgresql+psycopg://user:password@database/coderisk"),
+        )
+
+
 def test_automatic_schema_creation_is_test_only() -> None:
     with pytest.raises(ValidationError, match="restricted to the test environment"):
         Settings(environment="development", database_auto_create=True)
@@ -89,7 +97,7 @@ def test_application_rejects_stale_migration_revision(tmp_path: Path) -> None:
         database_url=SecretStr(database_url),
     )
 
-    with pytest.raises(RuntimeError, match="expected 'b8e854eb3d0b'"):
+    with pytest.raises(RuntimeError, match="expected '20260825_0001'"):
         with TestClient(create_app(development_settings)):
             pass
 

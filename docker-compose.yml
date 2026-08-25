@@ -24,6 +24,7 @@ services:
     environment:
       - CODERISK_ENVIRONMENT=production
       - CODERISK_DATABASE_URL=postgresql+psycopg://coderisk:coderiskpassword@db:5432/coderisk
+      - CODERISK_JWT_SECRET_KEY=${CODERISK_JWT_SECRET_KEY:?Set CODERISK_JWT_SECRET_KEY to a unique value with at least 32 characters}
       - CODERISK_API_KEY=${CODERISK_API_KEY:-}
       - CODERISK_CORS_ORIGINS=["http://localhost:5173","http://localhost:8080","http://127.0.0.1:8080"]
     volumes:

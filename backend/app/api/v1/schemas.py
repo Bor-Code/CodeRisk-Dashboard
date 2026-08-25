@@ -20,12 +20,18 @@ T = TypeVar("T")
 
 class UserCreateRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    phone_number: str = Field(..., min_length=1, max_length=20)
     password: str = Field(..., min_length=6)
 
 
 class UserResponse(BaseModel):
     id: str
     username: str
+    first_name: str
+    last_name: str
+    phone_number: str
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -228,8 +234,8 @@ def finding_response(finding: PersistedFinding) -> FindingResponse:
         line=finding.line,
         evidence=finding.evidence,
         remediation=finding.remediation,
-        engine_id=getattr(finding, "engine_id", "built-in"),
-        rule_id=getattr(finding, "rule_id", None),
+        engine_id=finding.engine_id,
+        rule_id=finding.rule_id,
         created_at=finding.created_at,
         is_ignored=finding.is_ignored,
     )

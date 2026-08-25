@@ -126,6 +126,8 @@ class ScanStore:
                     line=finding.line,
                     evidence=finding.evidence,
                     remediation=finding.remediation,
+                    engine_id=finding.engine_id,
+                    rule_id=finding.rule_id,
                     is_ignored=is_ignored,
                 )
             )
@@ -204,14 +206,24 @@ class ScanStore:
     def get_previous_completed_scan(
         self, repository_id: str, before_scan_id: str
     ) -> PersistedScan | None:
+        current_model = self.session.get(ScanModel, before_scan_id)
+        if current_model is None:
+            return None
+
+        reference_time = current_model.completed_at or current_model.created_at
         statement = (
             _scan_detail_statement()
             .where(
                 ScanModel.repository_id == repository_id,
                 ScanModel.status == "completed",
-                ScanModel.id < before_scan_id,
+                ScanModel.id != before_scan_id,
+                ScanModel.completed_at <= reference_time,
             )
-            .order_by(ScanModel.completed_at.desc(), ScanModel.id.desc())
+            .order_by(
+                ScanModel.completed_at.desc(),
+                ScanModel.created_at.desc(),
+                ScanModel.id.desc(),
+            )
             .limit(1)
         )
         model = self.session.scalar(statement)
@@ -311,7 +323,7 @@ class ScanStore:
             id=model.id,
             worker_id=worker_id,
             target=model.repository.target,
-            target_type=model.repository.target_type,
+            target_type=cast(RepositoryTargetType, model.repository.target_type),
         )
 
     def renew_lease(self, scan_id: str, worker_id: str, lease_seconds: int) -> bool:
@@ -475,6 +487,8 @@ def _finding_from_model(model: FindingModel) -> PersistedFinding:
         remediation=model.remediation,
         created_at=_as_utc(model.created_at),
         is_ignored=model.is_ignored,
+        engine_id=model.engine_id,
+        rule_id=model.rule_id,
     )
 
 

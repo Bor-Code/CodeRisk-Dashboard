@@ -89,7 +89,7 @@ def test_application_rejects_stale_migration_revision(tmp_path: Path) -> None:
         database_url=SecretStr(database_url),
     )
 
-    with pytest.raises(RuntimeError, match="expected '20260822_0001'"):
+    with pytest.raises(RuntimeError, match="expected 'b8e854eb3d0b'"):
         with TestClient(create_app(development_settings)):
             pass
 

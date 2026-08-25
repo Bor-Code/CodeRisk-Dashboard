@@ -6,15 +6,24 @@ from sqlalchemy.pool import NullPool, StaticPool
 
 from app.core.config import Settings
 from app.db.base import Base
-from app.db.models import EngineRunModel, FindingModel, RepositoryModel, ScanModel
+from app.db.models import (
+    EngineRunModel,
+    FindingModel,
+    RepositoryModel,
+    SbomModel,
+    ScanModel,
+    UserModel,
+)
 
 REQUIRED_TABLES = {
     RepositoryModel.__tablename__,
     ScanModel.__tablename__,
     FindingModel.__tablename__,
     EngineRunModel.__tablename__,
+    UserModel.__tablename__,
+    SbomModel.__tablename__,
 }
-SCHEMA_REVISION = "20260822_0001"
+SCHEMA_REVISION = "b8e854eb3d0b"
 
 
 @dataclass(frozen=True)

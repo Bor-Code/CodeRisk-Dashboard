@@ -265,9 +265,8 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
             {loading ? "Please wait..." : (isRegister ? "Sign Up" : "Sign In")}
           </button>
         </form>
-        
-        <div className="login-footer">
-          <button type="button" className="btn-link" onClick={() => setIsRegister(!isRegister)}>
+        <div className="toggle-mode">
+          <button type="button" onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
           </button>
         </div>

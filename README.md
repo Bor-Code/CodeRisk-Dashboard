@@ -1,185 +1,86 @@
 # CodeRisk Dashboard
+Developed by Bor-Code
 
-[![CI](https://github.com/Bor-Code/CodeRisk-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Bor-Code/CodeRisk-Dashboard/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-pre--1.0-orange.svg)](#project-status)
+CodeRisk Dashboard is a comprehensive, automated static application security testing (SAST) and software composition analysis (SCA) platform. It allows engineering and security teams to scan local repositories or public GitHub URLs to detect vulnerabilities, secret leaks, and misconfigurations.
 
-CodeRisk Dashboard is a self-hosted security review workspace for turning repository scans into clear, actionable findings. The current pre-1.0 build scans local repositories for secret-like values, insecure configuration, basic source-code risks, and dependency manifests, then presents the results in a focused web dashboard.
+## Key Features
 
-> [!IMPORTANT]
-> CodeRisk is under active pre-1.0 development. The built-in scanner is useful for local review and development, but it is not yet a replacement for mature SAST, secret-scanning, or dependency-vulnerability tools.
+* Automated Security Scanning: Seamlessly scans codebases using multiple integrated security engines.
+* Secret Detection: Utilizes Gitleaks to identify hardcoded passwords, API keys, and tokens.
+* Vulnerability Analysis: Integrates Semgrep to detect insecure coding patterns and vulnerabilities such as SQL Injection and XSS.
+* Open Source Security: Uses OSV-Scanner to find known vulnerabilities in third-party dependencies.
+* Interactive Dashboard: Provides a modern, dark-themed glassmorphism UI to view scan results, severity metrics, and historical score trends.
+* Cloud-Native Architecture: Built to be deployed effortlessly on modern cloud infrastructure.
 
-## Current capabilities
+## Screenshots
 
-- Scan a local repository without uploading its source code.
-- Detect supported dependency manifests and lockfiles.
-- Identify secret-like values (AWS, Stripe, Slack, etc.) while masking evidence before it reaches reports.
-- Check common insecure configuration and basic Python (eval/exec)/React source patterns.
-- Filter findings by severity and calculate a deterministic 0–100 score.
-- Persist repositories, scan history, findings, and normalized engine-run metadata.
-- Expose a versioned API with pagination, filtering, per-scan exports, and SBOM access.
-- Run built-in checks plus optional Gitleaks, Semgrep, and OSV-Scanner adapters when installed.
-- Authenticate users with JWT-backed API access for the dashboard.
-- Export the latest report as JSON or Markdown through compatibility routes.
-- Ignore generated directories and constrain text-file size during scanning.
-- Validate scanner, API, and dashboard behavior with automated unit and frontend tests.
+### Security Scan Interface
+![Security Scan](docs/scan-page.png)
 
-
-## Product direction
-
-CodeRisk is being developed as a **self-hosted-first, SaaS-ready** platform. The engine architecture normalizes results from built-in checks, Gitleaks, Semgrep, and OSV-Scanner behind stable adapters. See [docs/mvp-scope.md](docs/mvp-scope.md) for the original MVP boundary and later additions.
+### Scan History & Analytics
+![Scan History](docs/history-page.png)
 
 ## Architecture
 
-```text
-React + TypeScript dashboard
-           |
-           | HTTP / JSON
-           v
-      FastAPI API
-           |
-           v
-   Service + scanner core
-           |
-           +-- repository metadata
-           +-- dependency manifests
-           +-- secret/config/SAST rules
-           +-- JSON and Markdown reports
-           |
-           v
- SQLAlchemy + Alembic history
-```
+* Frontend: React 18, TypeScript, Vite, CSS (Glassmorphism UI)
+* Backend: Python 3.11, FastAPI, SQLAlchemy, Alembic
+* Database: PostgreSQL (Supabase)
+* Deployment: Vercel (Frontend) and Render (Backend Docker Container)
 
-The scanner core lives outside FastAPI so rule behavior can be tested without starting a server. Repository and scan history are persisted through SQLAlchemy and Alembic. Scan jobs run asynchronously through durable worker leases, and optional external engine adapters are normalized into the same report model.
+## Local Development Setup
 
-## Technology
+### Prerequisites
+* Node.js (v18 or higher)
+* Python (3.11 or higher)
+* uv (Python package installer and resolver)
 
-| Area | Stack |
-| --- | --- |
-| Backend | Python 3.11+, FastAPI, SQLAlchemy 2, Alembic, uv, Pytest, Ruff |
-| Frontend | React 19, TypeScript 6, Vite 8 |
-| Frontend tests | Vitest, Testing Library, jsdom, V8 coverage |
-| Automation | GitHub Actions, Dependabot |
-
-## Quick start
-
-### Requirements
-
-- Python 3.11 or newer
-- [uv](https://docs.astral.sh/uv/)
-- Node.js 24
-- npm 11 or newer
-
-### Install
-
-From the repository root:
-
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/Bor-Code/CodeRisk-Dashboard.git
+git clone https://github.com/Bor-Code-Code-Dashboard/CodeRisk-Dashboard.git
 cd CodeRisk-Dashboard
-uv --directory backend sync --all-groups
-uv --directory backend run alembic upgrade head
-npm --prefix frontend ci
 ```
 
-### Run
-
-Start the API:
-
+### 2. Backend Setup
 ```bash
-uv --directory backend run uvicorn app.main:app --reload
+cd backend
+# Install dependencies using uv
+uv sync
+
+# Run database migrations (SQLite is used by default for local development)
+uv run alembic upgrade head
+
+# Start the FastAPI server
+uv run uvicorn app.main:app --reload
 ```
+The backend will be available at `http://127.0.0.1:8000`.
 
-In a second terminal, start the dashboard:
-
+### 3. Frontend Setup
+Open a new terminal window:
 ```bash
-npm --prefix frontend run dev
+cd frontend
+
+# Create a local environment file
+echo "VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1" > .env.local
+
+# Install dependencies and start the Vite dev server
+npm install
+npm run dev
 ```
+The frontend will be available at `http://localhost:5173`.
 
-Open <http://127.0.0.1:5173>. The API is available at <http://127.0.0.1:8000>, and its interactive OpenAPI documentation is at <http://127.0.0.1:8000/docs>.
+## Environment Variables
 
-Enter an absolute path that is readable by the backend process. On Windows, a path such as `C:\Projects\sample-repository` is supported.
+For production deployments, the following environment variables are required:
 
-## API
+### Backend (Render)
+* `CODERISK_ENVIRONMENT`: Set to `production`
+* `CODERISK_DATABASE_URL`: PostgreSQL connection string (e.g., Supabase IPv4 Pooler URL with psycopg driver)
+* `CODERISK_JWT_SECRET_KEY`: A secure random string (minimum 32 characters)
+* `CODERISK_CORS_ORIGINS`: JSON array of allowed origins (e.g., `["https://your-frontend.vercel.app"]`)
 
-The versioned resource API exposes:
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/v1/repositories` | Register a local repository |
-| `GET` | `/api/v1/repositories` | List registered repositories |
-| `POST` | `/api/v1/repositories/{id}/scans` | Run and persist a repository scan |
-| `GET` | `/api/v1/scans` | List scans with pagination and filters |
-| `GET` | `/api/v1/scans/{id}` | Read scan status and summary |
-| `GET` | `/api/v1/scans/{id}/findings` | List and filter persisted findings |
-| `GET` | `/api/v1/scans/{id}/reports/json` | Export a scan as JSON |
-| `GET` | `/api/v1/scans/{id}/reports/markdown` | Export a scan as Markdown |
-
-The unversioned `GET /health` endpoint remains available for process checks. The existing `/scan` and `/reports/latest.*` routes remain available as deprecated compatibility routes while the dashboard migrates to `/api/v1`. GitHub URL input is accepted by the API when secure clone support is configured; local-path scanning remains the default development workflow.
-
-## Configuration
-
-Copy `backend/.env.example` to `backend/.env` to override development settings. The default development database is SQLite. Apply schema changes before starting the API:
-
-```bash
-uv --directory backend run alembic upgrade head
-```
-
-Production configuration fails fast unless `CODERISK_DATABASE_URL` uses PostgreSQL with the psycopg driver and `CODERISK_JWT_SECRET_KEY` is a non-default secret with at least 32 characters. Automatic schema creation is restricted to isolated tests; production migrations must be applied explicitly. Integration credentials are redacted from API responses; use deployment-level secret storage and database protections for sensitive values.
-
-## Quality checks
-
-Run the same checks used by CI:
-
-```bash
-uv --directory backend run ruff check .
-uv --directory backend run ruff format --check .
-uv --directory backend run pytest --cov=app --cov-report=term-missing
-uv --directory backend run python -m scripts.openapi_contract --check
-npm --prefix frontend run lint
-npm --prefix frontend run typecheck
-npm --prefix frontend run test:coverage
-npm --prefix frontend run build
-```
-
-Backend coverage must remain at or above 80%. Frontend coverage thresholds are configured in `frontend/vite.config.ts`.
-
-## Repository layout
-
-```text
-backend/
-  alembic/      Database migrations
-  app/          API, domain, service, persistence, and scanner layers
-  tests/        API, migration, persistence, report, and scanner tests
-frontend/
-  src/          React dashboard and component tests
-docs/           Scope and architecture documentation
-.github/        CI, dependency updates, and contribution templates
-```
-
-## Security
-
-Repository contents must be treated as untrusted input. Raw secrets must never appear in logs, API responses, snapshots, or exports. Do not expose the current development server directly to an untrusted network.
-
-Report suspected vulnerabilities privately according to [SECURITY.md](SECURITY.md). Use regular issues only for sanitized scanner false positives, missed rules, and non-sensitive bugs.
-
-## Project status
-
-The project is pre-1.0. Near-term milestones are:
-
-1. governance, CI, and repeatable quality gates;
-2. versioned API and persistent scan history;
-3. asynchronous scan jobs and normalized engine results;
-4. Gitleaks, Semgrep, OSV-Scanner, and SBOM integration;
-5. authenticated dashboard workflows and self-hosted containers;
-6. GitHub repository ingestion, observability, and release hardening.
-
-The roadmap deliberately favors reviewable pull requests over a single large rewrite.
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+### Frontend (Vercel)
+* `VITE_API_BASE_URL`: URL of the deployed backend API (e.g., `https://your-backend.onrender.com/api/v1`)
 
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE).
+This project is licensed under the MIT License.

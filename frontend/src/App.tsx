@@ -595,9 +595,12 @@ export default function App() {
     <div className="app-root">
       {/* ── Sidebar ── */}
       <nav className="sidebar glass-panel">
-        <div className="sidebar-brand">
-          <Zap className="brand-icon" size={24} style={{ color: "#6366f1" }} />
-          <span className="brand-name">CodeRisk</span>
+        <div style={{ padding: "0 8px 16px", borderBottom: "1px solid var(--border)", marginBottom: 8, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Zap className="brand-icon" size={24} style={{ color: "#6366f1" }} />
+            <span className="brand-name">CodeRisk</span>
+          </div>
+          <span style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, paddingLeft: 34 }}>developed by Bor-Code</span>
         </div>
 
         <ul className="nav-list">

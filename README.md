@@ -111,19 +111,64 @@ The backend API will be available at `http://127.0.0.1:8000`.
 ### 3. Frontend Setup
 Open a new terminal window to start the user interface:
 ```bash
-cd frontend
-
-# Tell the frontend where the local API is running
-echo "VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1" > .env.local
-
-# Install Node dependencies and start the Vite dev server
-npm install
-npm run dev
+uv --directory backend run alembic upgrade head
 ```
-The dashboard will be available at `http://localhost:5173`.
 
----
+Production configuration fails fast unless `CODERISK_DATABASE_URL` uses PostgreSQL with the psycopg driver and `CODERISK_JWT_SECRET_KEY` is a non-default secret with at least 32 characters. Automatic schema creation is restricted to isolated tests; production migrations must be applied explicitly. Integration credentials are redacted from API responses; use deployment-level secret storage and database protections for sensitive values.
 
-## License & Disclaimer
+## Quality checks
 
-*Bu bir test ürünüdür ve yapım aşamasında yapay zeka (AI) kullanılmıştır.*
+Run the same checks used by CI:
+
+```bash
+uv --directory backend run ruff check .
+uv --directory backend run ruff format --check .
+uv --directory backend run pytest --cov=app --cov-report=term-missing
+uv --directory backend run python -m scripts.openapi_contract --check
+npm --prefix frontend run lint
+npm --prefix frontend run typecheck
+npm --prefix frontend run test:coverage
+npm --prefix frontend run build
+```
+
+Backend coverage must remain at or above 80%. Frontend coverage thresholds are configured in `frontend/vite.config.ts`.
+
+## Repository layout
+
+```text
+backend/
+  alembic/      Database migrations
+  app/          API, domain, service, persistence, and scanner layers
+  tests/        API, migration, persistence, report, and scanner tests
+frontend/
+  src/          React dashboard and component tests
+docs/           Scope and architecture documentation
+.github/        CI, dependency updates, and contribution templates
+```
+
+## Security
+
+Repository contents must be treated as untrusted input. Raw secrets must never appear in logs, API responses, snapshots, or exports. Do not expose the current development server directly to an untrusted network.
+
+Report suspected vulnerabilities privately according to [SECURITY.md](SECURITY.md). Use regular issues only for sanitized scanner false positives, missed rules, and non-sensitive bugs.
+
+## Project status
+
+The project is pre-1.0. Near-term milestones are:
+
+1. governance, CI, and repeatable quality gates;
+2. versioned API and persistent scan history;
+3. asynchronous scan jobs and normalized engine results;
+4. Gitleaks, Semgrep, OSV-Scanner, and SBOM integration;
+5. authenticated dashboard workflows and self-hosted containers;
+6. GitHub repository ingestion, observability, and release hardening.
+
+The roadmap deliberately favors reviewable pull requests over a single large rewrite.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).

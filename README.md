@@ -172,3 +172,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Participa
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
+
+---
+
+## Built With AI-Assisted Tooling
+
+This project was developed with the assistance of AI-powered coding tools, including **Claude Code** and **Antigravity**, which supported implementation, refactoring, and debugging throughout the development process. All architectural decisions, feature design, and final code review were carried out by the project maintainer.
